@@ -20,63 +20,63 @@ fn escape_json_into(s: &str, buf: &mut String) {
 use std::fmt::Write;
 
 /// A minimal JSON string builder that writes into a `String` buffer.
-pub(crate) struct JsonWriter {
+pub struct JsonWriter {
     buf: String,
 }
 
 impl JsonWriter {
     /// Create a new, empty writer.
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self { buf: String::new() }
     }
 
     /// Create a writer that continues from existing content (e.g. span field fragments).
     /// The existing content is treated as already-written key-value pairs.
-    pub(crate) fn continuing(existing: &str) -> Self {
+    pub fn continuing(existing: &str) -> Self {
         Self {
             buf: existing.to_owned(),
         }
     }
 
-    pub(crate) fn obj_start(&mut self) {
+    pub fn obj_start(&mut self) {
         self.buf.push('{');
     }
 
-    pub(crate) fn obj_end(&mut self) {
+    pub fn obj_end(&mut self) {
         self.buf.push('}');
     }
 
-    pub(crate) fn arr_start(&mut self) {
+    pub fn arr_start(&mut self) {
         self.buf.push('[');
     }
 
-    pub(crate) fn arr_end(&mut self) {
+    pub fn arr_end(&mut self) {
         self.buf.push(']');
     }
 
     /// Write a JSON object key (field names are Rust identifiers, safe without escaping).
-    pub(crate) fn key(&mut self, name: &str) {
+    pub fn key(&mut self, name: &str) {
         self.buf.push('"');
         self.buf.push_str(name);
         self.buf.push_str("\":");
     }
 
     /// Write a JSON string value with proper escaping.
-    pub(crate) fn val_str(&mut self, s: &str) {
+    pub fn val_str(&mut self, s: &str) {
         self.buf.push('"');
         escape_json_into(s, &mut self.buf);
         self.buf.push('"');
     }
 
-    pub(crate) fn val_u64(&mut self, v: u64) {
+    pub fn val_u64(&mut self, v: u64) {
         write!(self.buf, "{v}").unwrap();
     }
 
-    pub(crate) fn val_i64(&mut self, v: i64) {
+    pub fn val_i64(&mut self, v: i64) {
         write!(self.buf, "{v}").unwrap();
     }
 
-    pub(crate) fn val_f64(&mut self, v: f64) {
+    pub fn val_f64(&mut self, v: f64) {
         if v.is_nan() || v.is_infinite() {
             self.val_null();
         } else {
@@ -92,29 +92,29 @@ impl JsonWriter {
         }
     }
 
-    pub(crate) fn val_bool(&mut self, v: bool) {
+    pub fn val_bool(&mut self, v: bool) {
         self.buf.push_str(if v { "true" } else { "false" });
     }
 
-    pub(crate) fn val_null(&mut self) {
+    pub fn val_null(&mut self) {
         self.buf.push_str("null");
     }
 
-    pub(crate) fn comma(&mut self) {
+    pub fn comma(&mut self) {
         self.buf.push(',');
     }
 
     /// Write raw JSON content (pre-formatted fragment).
-    pub(crate) fn raw(&mut self, s: &str) {
+    pub fn raw(&mut self, s: &str) {
         self.buf.push_str(s);
     }
 
-    pub(crate) fn finish_line(&mut self) {
+    pub fn finish_line(&mut self) {
         self.buf.push('\n');
     }
 
     /// Consume and return the buffer.
-    pub(crate) fn into_string(self) -> String {
+    pub fn into_string(self) -> String {
         self.buf
     }
 }

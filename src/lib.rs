@@ -22,6 +22,10 @@ use tracing_subscriber::layer::Context;
 use tracing_subscriber::registry::LookupSpan;
 
 mod visitor;
+
+#[cfg(feature = "_bench_internals")]
+pub mod writer;
+#[cfg(not(feature = "_bench_internals"))]
 mod writer;
 
 use visitor::JsonVisitor;
