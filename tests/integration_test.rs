@@ -280,8 +280,14 @@ fn test_thread_fields_absent_by_default() {
         tracing::info!("default config");
     });
     let v = parse_line(w.output().trim());
-    assert!(v.get("threadId").is_none(), "threadId should be absent by default");
-    assert!(v.get("threadName").is_none(), "threadName should be absent by default");
+    assert!(
+        v.get("threadId").is_none(),
+        "threadId should be absent by default"
+    );
+    assert!(
+        v.get("threadName").is_none(),
+        "threadName should be absent by default"
+    );
 }
 
 #[test]
@@ -337,10 +343,22 @@ fn test_thread_id_compat_with_tracing_subscriber() {
     let our_val = parse_line(our_writer.output().trim());
 
     // Both should have threadId and threadName fields with matching types
-    assert!(ts_val["threadId"].is_string(), "tracing-subscriber threadId: {}", ts_val);
+    assert!(
+        ts_val["threadId"].is_string(),
+        "tracing-subscriber threadId: {}",
+        ts_val
+    );
     assert!(our_val["threadId"].is_string(), "our threadId: {}", our_val);
-    assert!(ts_val["threadName"].is_string(), "tracing-subscriber threadName: {}", ts_val);
-    assert!(our_val["threadName"].is_string(), "our threadName: {}", our_val);
+    assert!(
+        ts_val["threadName"].is_string(),
+        "tracing-subscriber threadName: {}",
+        ts_val
+    );
+    assert!(
+        our_val["threadName"].is_string(),
+        "our threadName: {}",
+        our_val
+    );
 
     // Values should match since both run on the same thread
     assert_eq!(
@@ -661,12 +679,11 @@ fn test_default_timer_produces_rfc3339() {
         tracing::info!("default timer");
     });
     let v = parse_line(w.output().trim());
-    let ts = v["timestamp"].as_str().expect("timestamp should be a string");
+    let ts = v["timestamp"]
+        .as_str()
+        .expect("timestamp should be a string");
     // RFC 3339 with microsecond precision: YYYY-MM-DDTHH:MM:SS.xxxxxxZ
-    assert!(
-        ts.ends_with('Z'),
-        "timestamp should end with Z, got: {ts}"
-    );
+    assert!(ts.ends_with('Z'), "timestamp should end with Z, got: {ts}");
     assert_eq!(ts.len(), 27, "timestamp should be 27 chars, got: {ts}");
     assert_eq!(&ts[10..11], "T", "timestamp should have T separator");
 }
@@ -674,9 +691,7 @@ fn test_default_timer_produces_rfc3339() {
 #[test]
 fn test_without_time_valid_json_flat() {
     let w = TestWriter::new();
-    let layer = JsonLayer::new(w.clone())
-        .without_time()
-        .flatten_event(true);
+    let layer = JsonLayer::new(w.clone()).without_time().flatten_event(true);
     let subscriber = tracing_subscriber::registry().with(layer);
     tracing::subscriber::with_default(subscriber, || {
         tracing::info!(key = "val", "flat no time");
