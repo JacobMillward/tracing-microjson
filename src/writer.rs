@@ -17,6 +17,8 @@ fn escape_json_into(s: &str, buf: &mut String) {
     }
 }
 
+use std::fmt::Write;
+
 /// A minimal JSON string builder that writes into a `String` buffer.
 pub(crate) struct JsonWriter {
     buf: String,
@@ -67,11 +69,11 @@ impl JsonWriter {
     }
 
     pub(crate) fn val_u64(&mut self, v: u64) {
-        self.buf.push_str(&v.to_string());
+        write!(self.buf, "{v}").unwrap();
     }
 
     pub(crate) fn val_i64(&mut self, v: i64) {
-        self.buf.push_str(&v.to_string());
+        write!(self.buf, "{v}").unwrap();
     }
 
     pub(crate) fn val_f64(&mut self, v: f64) {
@@ -80,12 +82,11 @@ impl JsonWriter {
         } else {
             // Format like serde_json: use Rust's default Display which gives
             // enough precision and handles -0.0 correctly.
-            let s = format!("{}", v);
+            let start = self.buf.len();
+            write!(self.buf, "{v}").unwrap();
             // serde_json always includes a decimal point for floats
-            if s.contains('.') || s.contains('e') || s.contains('E') {
-                self.buf.push_str(&s);
-            } else {
-                self.buf.push_str(&s);
+            let written = &self.buf[start..];
+            if !written.contains('.') && !written.contains('e') && !written.contains('E') {
                 self.buf.push_str(".0");
             }
         }
