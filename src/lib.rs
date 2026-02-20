@@ -28,7 +28,8 @@
 //!             .with_target(false)
 //!             .with_file(true)
 //!             .with_line_number(true)
-//!             .flatten_event(true),
+//!             .flatten_event(true)
+//!             .without_time(),
 //!     )
 //!     .init();
 //! ```
@@ -41,6 +42,8 @@
 //! | [`JsonLayer::with_thread_ids`] | `false` | Include the thread ID |
 //! | [`JsonLayer::with_thread_names`] | `false` | Include the thread name |
 //! | [`JsonLayer::flatten_event`] | `false` | Flatten event fields to the top level instead of nesting under `"fields"` |
+//! | [`JsonLayer::with_timer`] | [`SystemTimestamp`] | Use a custom [`FormatTime`] implementation for timestamps |
+//! | [`JsonLayer::without_time`] | — | Disable timestamps entirely |
 //!
 //! # Output format
 //!
@@ -51,7 +54,9 @@
 //! {"timestamp":"…","level":"INFO","fields":{"message":"hello"},"target":"my_app","span":{"name":"req"},"spans":[{"name":"req"}]}
 //! ```
 //!
-//! - `timestamp` — always present, RFC 3339 with microsecond precision in UTC.
+//! - `timestamp` — RFC 3339 with microsecond precision in UTC by default.
+//!   Customisable via [`with_timer`](JsonLayer::with_timer) or disabled with
+//!   [`without_time`](JsonLayer::without_time).
 //! - `level` — always present (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`).
 //! - `fields` — event fields, nested under `"fields"` by default. With
 //!   [`flatten_event(true)`](JsonLayer::flatten_event) they appear at the top
@@ -67,8 +72,11 @@ use std::io::Write;
 use std::time::SystemTime;
 use tracing_core::{Event, Subscriber};
 use tracing_subscriber::Layer;
+use tracing_subscriber::fmt::format::Writer as FmtWriter;
 use tracing_subscriber::layer::Context;
 use tracing_subscriber::registry::LookupSpan;
+
+pub use tracing_subscriber::fmt::time::FormatTime;
 
 mod visitor;
 
@@ -80,6 +88,19 @@ mod writer;
 use visitor::JsonVisitor;
 use writer::JsonWriter;
 
+/// A timestamp formatter that produces RFC 3339 timestamps with microsecond
+/// precision in UTC (e.g. `2026-02-20T12:00:00.000000Z`).
+///
+/// This is the default timer used by [`JsonLayer`]. It uses a hand-written
+/// formatter for minimal overhead — no chrono or time crate required.
+pub struct SystemTimestamp;
+
+impl FormatTime for SystemTimestamp {
+    fn format_time(&self, w: &mut FmtWriter<'_>) -> std::fmt::Result {
+        w.write_str(&format_timestamp(SystemTime::now()))
+    }
+}
+
 // Extension type stored in span data
 struct SpanFields(String);
 
@@ -87,8 +108,9 @@ struct SpanFields(String);
 ///
 /// See the [crate-level docs](crate) for configuration options and output
 /// format details.
-pub struct JsonLayer<W> {
+pub struct JsonLayer<W, T = SystemTimestamp> {
     make_writer: W,
+    timer: T,
     display_target: bool,
     display_filename: bool,
     display_line_number: bool,
@@ -108,6 +130,7 @@ where
     pub fn new(make_writer: W) -> Self {
         Self {
             make_writer,
+            timer: SystemTimestamp,
             display_target: true,
             display_filename: false,
             display_line_number: false,
@@ -116,7 +139,12 @@ where
             flatten_event: false,
         }
     }
+}
 
+impl<W, T> JsonLayer<W, T>
+where
+    W: for<'w> tracing_subscriber::fmt::MakeWriter<'w> + 'static,
+{
     /// Set whether the `target` field (module path) is included in output.
     ///
     /// Default: **`true`**.
@@ -165,12 +193,41 @@ where
         self.flatten_event = flatten;
         self
     }
+
+    /// Use a custom [`FormatTime`] implementation for timestamps.
+    ///
+    /// This replaces the default [`SystemTimestamp`] formatter. Any type
+    /// implementing [`FormatTime`] can be used, including those from
+    /// `tracing-subscriber` such as `Uptime` and `ChronoUtc`.
+    ///
+    /// Pass `()` to disable timestamps entirely (equivalent to
+    /// [`without_time`](Self::without_time)).
+    pub fn with_timer<T2: FormatTime>(self, timer: T2) -> JsonLayer<W, T2> {
+        JsonLayer {
+            make_writer: self.make_writer,
+            timer,
+            display_target: self.display_target,
+            display_filename: self.display_filename,
+            display_line_number: self.display_line_number,
+            display_thread_id: self.display_thread_id,
+            display_thread_name: self.display_thread_name,
+            flatten_event: self.flatten_event,
+        }
+    }
+
+    /// Disable timestamps in the output.
+    ///
+    /// This is a convenience for `self.with_timer(())`.
+    pub fn without_time(self) -> JsonLayer<W, ()> {
+        self.with_timer(())
+    }
 }
 
-impl<S, W> Layer<S> for JsonLayer<W>
+impl<S, W, T> Layer<S> for JsonLayer<W, T>
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
     W: for<'w> tracing_subscriber::fmt::MakeWriter<'w> + 'static,
+    T: FormatTime + 'static,
 {
     fn on_new_span(
         &self,
@@ -215,13 +272,24 @@ where
     fn on_event(&self, event: &Event<'_>, ctx: Context<'_, S>) {
         let mut jw = JsonWriter::new();
 
-        // timestamp
         jw.obj_start();
-        jw.key("timestamp");
-        jw.val_str(&format_timestamp(SystemTime::now()));
+
+        // timestamp (absent when timer is `()` / `without_time()`)
+        let mut ts_buf = String::new();
+        {
+            let mut fmt_writer = FmtWriter::new(&mut ts_buf);
+            let _ = self.timer.format_time(&mut fmt_writer);
+        }
+        let wrote_timestamp = !ts_buf.is_empty();
+        if wrote_timestamp {
+            jw.key("timestamp");
+            jw.val_str(&ts_buf);
+        }
 
         // level
-        jw.comma();
+        if wrote_timestamp {
+            jw.comma();
+        }
         jw.key("level");
         jw.val_str(&event.metadata().level().to_string());
 
