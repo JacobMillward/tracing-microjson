@@ -78,7 +78,7 @@ impl JsonWriter {
 
     pub(crate) fn val_f64(&mut self, v: f64) {
         if v.is_nan() || v.is_infinite() {
-            self.buf.push_str("null");
+            self.val_null();
         } else {
             // Format like serde_json: use Rust's default Display which gives
             // enough precision and handles -0.0 correctly.
@@ -97,7 +97,6 @@ impl JsonWriter {
         self.buf.push_str(if v { "true" } else { "false" });
     }
 
-    #[allow(dead_code)]
     pub(crate) fn val_null(&mut self) {
         self.buf.push_str("null");
     }
