@@ -1,0 +1,18 @@
+[package]
+name = "tracing-microjson"
+version = "0.1.0"
+edition = "2024"
+description = "A tracing JSON layer with zero serialization framework dependencies"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/JacobMillward/tracing-microjson"
+keywords = ["tracing", "json", "logging"]
+categories = ["development-tools::debugging"]
+
+[dependencies]
+tracing-core = "0.1"
+tracing-subscriber = { version = "0.3", features = ["registry"] }
+
+[dev-dependencies]
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["registry", "json", "env-filter"] }
+serde_json = "1"
