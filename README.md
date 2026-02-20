@@ -59,14 +59,14 @@ tracing_subscriber::registry()
 
 | Feature                 |     tracing-subscriber `json`      | tracing-microjson |
 | ----------------------- | :--------------------------------: | :---------------: |
-| JSON event output       |                Yes                 |        Yes        |
-| Span fields & nesting   |                Yes                 |        Yes        |
-| Target, file, line      |                Yes                 |        Yes        |
-| `flatten_event`         |                Yes                 |        Yes        |
-| Custom timestamps       |                Yes                 |      Not yet      |
-| Thread ID / name        |                Yes                 |      Not yet      |
-| Custom field formatters |                Yes                 |      Not yet      |
-| Serialization deps      | serde + serde_json + tracing-serde |       None        |
+| JSON event output       |               ✅ Yes               |      ✅ Yes       |
+| Span fields & nesting   |               ✅ Yes               |      ✅ Yes       |
+| Target, file, line      |               ✅ Yes               |      ✅ Yes       |
+| `flatten_event`         |               ✅ Yes               |      ✅ Yes       |
+| Custom timestamps       |               ✅ Yes               |    🔜 Not yet     |
+| Thread ID / name        |               ✅ Yes               |    🔜 Not yet     |
+| Custom field formatters |               ✅ Yes               |    🔜 Not yet     |
+| Serialization deps      | serde + serde_json + tracing-serde |      ✅ None      |
 
 ## Dependency comparison
 
