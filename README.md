@@ -109,7 +109,7 @@ Head-to-head benchmarks on the same workload (lower is better):
 
 ## MSRV
 
-The minimum supported Rust version is **1.86** (edition 2024).
+The minimum supported Rust version is **1.87** (edition 2024).
 
 ## License
 
