@@ -71,7 +71,7 @@ All comparisons are against `tracing-subscriber` with its `json` feature enabled
 | `flatten_event`         |               ✅ Yes               |      ✅ Yes       |
 | Custom timestamps       |               ✅ Yes               |    🔜 Not yet     |
 | Thread ID / name        |               ✅ Yes               |      ✅ Yes       |
-| Custom field formatters |               ✅ Yes               |    🔜 Not yet     |
+| Custom field formatters |               ✅ Yes               |       ❌ No       |
 | Serialization deps      | serde + serde_json + tracing-serde |      ✅ None      |
 
 ### Dependencies
