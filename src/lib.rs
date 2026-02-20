@@ -3,7 +3,7 @@
 //! Drop-in replacement for tracing-subscriber's `json` feature, producing
 //! identical output format without pulling in serde/serde_json/tracing-serde.
 //!
-//! # Example
+//! # Quick start
 //!
 //! ```rust
 //! use tracing_microjson::JsonLayer;
@@ -13,6 +13,53 @@
 //!     .with(JsonLayer::new(std::io::stderr))
 //!     .init();
 //! ```
+//!
+//! # Configuration
+//!
+//! [`JsonLayer`] uses a builder pattern. All options have sensible defaults —
+//! only override what you need.
+//!
+//! ```rust
+//! # use tracing_microjson::JsonLayer;
+//! # use tracing_subscriber::prelude::*;
+//! tracing_subscriber::registry()
+//!     .with(
+//!         JsonLayer::new(std::io::stderr)
+//!             .with_target(false)
+//!             .with_file(true)
+//!             .with_line_number(true)
+//!             .flatten_event(true),
+//!     )
+//!     .init();
+//! ```
+//!
+//! | Method | Default | Effect |
+//! |---|---|---|
+//! | [`JsonLayer::with_target`] | `true` | Include the event target (module path) |
+//! | [`JsonLayer::with_file`] | `false` | Include the source filename |
+//! | [`JsonLayer::with_line_number`] | `false` | Include the source line number |
+//! | [`JsonLayer::flatten_event`] | `false` | Flatten event fields to the top level instead of nesting under `"fields"` |
+//!
+//! # Output format
+//!
+//! Every event is written as a single JSON line. The fields present depend on
+//! the configuration above and whether the event occurs inside a span:
+//!
+//! ```text
+//! {"timestamp":"…","level":"INFO","fields":{"message":"hello"},"target":"my_app","span":{"name":"req"},"spans":[{"name":"req"}]}
+//! ```
+//!
+//! - `timestamp` — always present, RFC 3339 with microsecond precision in UTC.
+//! - `level` — always present (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`).
+//! - `fields` — event fields, nested under `"fields"` by default. With
+//!   [`flatten_event(true)`](JsonLayer::flatten_event) they appear at the top
+//!   level instead.
+//! - `target` — module path, present when [`with_target`](JsonLayer::with_target)
+//!   is `true`.
+//! - `filename` / `line_number` — source location, present when enabled via
+//!   [`with_file`](JsonLayer::with_file) / [`with_line_number`](JsonLayer::with_line_number).
+//! - `span` — the innermost active span (if any).
+//! - `spans` — all active spans from root to leaf (if any).
 
 use std::io::Write;
 use std::time::SystemTime;
@@ -35,6 +82,9 @@ use writer::JsonWriter;
 struct SpanFields(String);
 
 /// A [`tracing_subscriber::Layer`] that formats events as JSON lines.
+///
+/// See the [crate-level docs](crate) for configuration options and output
+/// format details.
 pub struct JsonLayer<W> {
     make_writer: W,
     display_target: bool,
@@ -47,7 +97,10 @@ impl<W> JsonLayer<W>
 where
     W: for<'w> tracing_subscriber::fmt::MakeWriter<'w> + 'static,
 {
-    /// Create a new `JsonLayer` writing to the given writer.
+    /// Create a new `JsonLayer` that writes JSON lines to `make_writer`.
+    ///
+    /// Accepts anything implementing [`tracing_subscriber::fmt::MakeWriter`],
+    /// e.g. `std::io::stderr` or `std::io::stdout`.
     pub fn new(make_writer: W) -> Self {
         Self {
             make_writer,
@@ -58,26 +111,34 @@ where
         }
     }
 
-    /// Whether to emit the `target` field. Default: `true`.
+    /// Set whether the `target` field (module path) is included in output.
+    ///
+    /// Default: **`true`**.
     pub fn with_target(mut self, display_target: bool) -> Self {
         self.display_target = display_target;
         self
     }
 
-    /// Whether to emit the `filename` field. Default: `false`.
+    /// Set whether the `filename` field is included in output.
+    ///
+    /// Default: **`false`**.
     pub fn with_file(mut self, display_filename: bool) -> Self {
         self.display_filename = display_filename;
         self
     }
 
-    /// Whether to emit the `line_number` field. Default: `false`.
+    /// Set whether the `line_number` field is included in output.
+    ///
+    /// Default: **`false`**.
     pub fn with_line_number(mut self, display_line: bool) -> Self {
         self.display_line_number = display_line;
         self
     }
 
-    /// Whether to flatten event fields to the top level instead of nesting
-    /// them under `"fields"`. Default: `false`.
+    /// Set whether event fields are flattened to the top level of the JSON
+    /// object instead of being nested under a `"fields"` key.
+    ///
+    /// Default: **`false`** (fields are nested).
     pub fn flatten_event(mut self, flatten: bool) -> Self {
         self.flatten_event = flatten;
         self
