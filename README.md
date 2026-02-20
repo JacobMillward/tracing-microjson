@@ -11,7 +11,7 @@ A [`tracing`] layer that outputs JSON-formatted logs **without pulling in serde,
 
 ## Why?
 
-Enabling the `json` feature on `tracing-subscriber` pulls in 9 additional crates
+Enabling the `json` feature on `tracing-subscriber` pulls in 7 additional crates
 (serde, serde_json, tracing-serde, and their transitive dependencies).
 `tracing-microjson` produces the same output format using a hand-written JSON
 formatter with zero serialization framework dependencies.
@@ -52,7 +52,8 @@ tracing_subscriber::registry()
             .with_line_number(true)     // include source line number (default: false)
             .with_thread_ids(true)      // include thread ID (default: false)
             .with_thread_names(true)    // include thread name (default: false)
-            .flatten_event(true),       // flatten fields to top level (default: false)
+            .flatten_event(true)        // flatten fields to top level (default: false)
+            .without_time(),            // disable timestamps (default: SystemTimestamp)
     )
     .init();
 ```

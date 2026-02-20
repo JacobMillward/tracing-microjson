@@ -65,6 +65,8 @@
 //!   is `true`.
 //! - `filename` / `line_number` — source location, present when enabled via
 //!   [`with_file`](JsonLayer::with_file) / [`with_line_number`](JsonLayer::with_line_number).
+//! - `threadId` / `threadName` — thread info, present when enabled via
+//!   [`with_thread_ids`](JsonLayer::with_thread_ids) / [`with_thread_names`](JsonLayer::with_thread_names).
 //! - `span` — the innermost active span (if any).
 //! - `spans` — all active spans from root to leaf (if any).
 
