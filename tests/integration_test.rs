@@ -64,7 +64,13 @@ fn test_event_mixed_type_fields() {
     let w = TestWriter::new();
     let subscriber = tracing_subscriber::registry().with(JsonLayer::new(w.clone()));
     tracing::subscriber::with_default(subscriber, || {
-        tracing::info!(count = 42u64, flag = true, ratio = 1.5f64, name = "Alice", "msg");
+        tracing::info!(
+            count = 42u64,
+            flag = true,
+            ratio = 1.5f64,
+            name = "Alice",
+            "msg"
+        );
     });
     let out = w.output();
     let v = parse_line(out.trim());
@@ -148,8 +154,14 @@ fn test_optional_fields_filename_line() {
     });
     let out = w.output();
     let v = parse_line(out.trim());
-    assert!(v["filename"].is_string(), "filename field should be present");
-    assert!(v["line_number"].is_number(), "line_number field should be present");
+    assert!(
+        v["filename"].is_string(),
+        "filename field should be present"
+    );
+    assert!(
+        v["line_number"].is_number(),
+        "line_number field should be present"
+    );
 }
 
 #[test]
@@ -191,8 +203,7 @@ fn test_compatibility_with_tracing_subscriber_json() {
     // Capture output from our JsonLayer
     let our_writer = TestWriter::new();
     {
-        let subscriber =
-            tracing_subscriber::registry().with(JsonLayer::new(our_writer.clone()));
+        let subscriber = tracing_subscriber::registry().with(JsonLayer::new(our_writer.clone()));
         tracing::subscriber::with_default(subscriber, || {
             tracing::info!(request_id = "abc-123", "invoke");
         });
@@ -229,8 +240,8 @@ fn test_all_log_levels() {
     let cases: &[(&str, Box<dyn Fn()>)] = &[
         ("TRACE", Box::new(|| tracing::trace!("msg"))),
         ("DEBUG", Box::new(|| tracing::debug!("msg"))),
-        ("INFO",  Box::new(|| tracing::info!("msg"))),
-        ("WARN",  Box::new(|| tracing::warn!("msg"))),
+        ("INFO", Box::new(|| tracing::info!("msg"))),
+        ("WARN", Box::new(|| tracing::warn!("msg"))),
         ("ERROR", Box::new(|| tracing::error!("msg"))),
     ];
     for (expected_level, emit) in cases {
@@ -262,7 +273,10 @@ fn test_i64_negative_field() {
 fn test_record_debug_field() {
     #[derive(Debug)]
     #[allow(dead_code)]
-    struct Point { x: i32, y: i32 }
+    struct Point {
+        x: i32,
+        y: i32,
+    }
 
     let w = TestWriter::new();
     let subscriber = tracing_subscriber::registry().with(JsonLayer::new(w.clone()));
@@ -306,8 +320,14 @@ fn test_event_outside_span_has_no_span_fields() {
         tracing::info!("no span context");
     });
     let v = parse_line(w.output().trim());
-    assert!(v.get("span").is_none(), "span key must be absent outside any span");
-    assert!(v.get("spans").is_none(), "spans key must be absent outside any span");
+    assert!(
+        v.get("span").is_none(),
+        "span key must be absent outside any span"
+    );
+    assert!(
+        v.get("spans").is_none(),
+        "spans key must be absent outside any span"
+    );
 }
 
 #[test]
@@ -324,7 +344,10 @@ fn test_flatten_event_with_span() {
     // Event fields must be at top level
     assert_eq!(v["message"], "flat with span");
     assert_eq!(v["extra"], "val");
-    assert!(v.get("fields").is_none(), "fields key must not exist when flattened");
+    assert!(
+        v.get("fields").is_none(),
+        "fields key must not exist when flattened"
+    );
     // Span context must still be present
     assert_eq!(v["span"]["name"], "my_span");
     assert_eq!(v["span"]["req_id"], "xyz");
