@@ -96,7 +96,7 @@ impl<'a> Visit for JsonVisitor<'a> {
         }
         self.first = false;
         self.writer.key(field.name());
-        self.writer.val_str(&format!("{:?}", value));
+        self.writer.val_str(&format!("{value:?}"));
     }
 
     fn record_error(&mut self, field: &Field, value: &(dyn std::error::Error + 'static)) {

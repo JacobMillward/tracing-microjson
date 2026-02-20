@@ -415,10 +415,7 @@ fn format_timestamp(t: SystemTime) -> String {
     // Decompose Unix seconds into date/time components
     let (year, month, day, hour, min, sec) = secs_to_datetime(secs);
 
-    format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:06}Z",
-        year, month, day, hour, min, sec, micros
-    )
+    format!("{year:04}-{month:02}-{day:02}T{hour:02}:{min:02}:{sec:02}.{micros:06}Z")
 }
 
 /// Convert Unix seconds to (year, month, day, hour, min, sec) in UTC.
