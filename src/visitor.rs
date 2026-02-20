@@ -1,22 +1,28 @@
-use tracing_core::field::{Field, Visit};
 use crate::writer::JsonWriter;
+use tracing_core::field::{Field, Visit};
 
 /// A [`Visit`] implementation that writes fields as JSON key-value pairs.
-pub struct JsonVisitor<'a> {
+pub(crate) struct JsonVisitor<'a> {
     writer: &'a mut JsonWriter,
     first: bool,
 }
 
 impl<'a> JsonVisitor<'a> {
     /// Create a new visitor that writes the first field without a leading comma.
-    pub fn new(writer: &'a mut JsonWriter) -> Self {
-        Self { writer, first: true }
+    pub(crate) fn new(writer: &'a mut JsonWriter) -> Self {
+        Self {
+            writer,
+            first: true,
+        }
     }
 
     /// Create a visitor that treats the writer as already having content,
     /// so all fields are preceded by a comma.
-    pub fn continuing(writer: &'a mut JsonWriter) -> Self {
-        Self { writer, first: false }
+    pub(crate) fn continuing(writer: &'a mut JsonWriter) -> Self {
+        Self {
+            writer,
+            first: false,
+        }
     }
 }
 

@@ -17,12 +17,12 @@
 use std::io::Write;
 use std::time::SystemTime;
 use tracing_core::{Event, Subscriber};
+use tracing_subscriber::Layer;
 use tracing_subscriber::layer::Context;
 use tracing_subscriber::registry::LookupSpan;
-use tracing_subscriber::Layer;
 
-mod writer;
 mod visitor;
+mod writer;
 
 use visitor::JsonVisitor;
 use writer::JsonWriter;
@@ -160,21 +160,21 @@ where
         }
 
         // filename
-        if self.display_filename {
-            if let Some(file) = event.metadata().file() {
-                jw.comma();
-                jw.key("filename");
-                jw.val_str(file);
-            }
+        if self.display_filename
+            && let Some(file) = event.metadata().file()
+        {
+            jw.comma();
+            jw.key("filename");
+            jw.val_str(file);
         }
 
         // line_number
-        if self.display_line_number {
-            if let Some(line) = event.metadata().line() {
-                jw.comma();
-                jw.key("line_number");
-                jw.val_u64(line as u64);
-            }
+        if self.display_line_number
+            && let Some(line) = event.metadata().line()
+        {
+            jw.comma();
+            jw.key("line_number");
+            jw.val_u64(line as u64);
         }
 
         // current span and spans list
@@ -189,11 +189,11 @@ where
                 jw.key("name");
                 jw.val_str(leaf.name());
                 let ext = leaf.extensions();
-                if let Some(fields) = ext.get::<SpanFields>() {
-                    if !fields.0.is_empty() {
-                        jw.comma();
-                        jw.raw(&fields.0);
-                    }
+                if let Some(fields) = ext.get::<SpanFields>()
+                    && !fields.0.is_empty()
+                {
+                    jw.comma();
+                    jw.raw(&fields.0);
                 }
                 jw.obj_end();
             }
@@ -210,11 +210,11 @@ where
                 jw.key("name");
                 jw.val_str(span.name());
                 let ext = span.extensions();
-                if let Some(fields) = ext.get::<SpanFields>() {
-                    if !fields.0.is_empty() {
-                        jw.comma();
-                        jw.raw(&fields.0);
-                    }
+                if let Some(fields) = ext.get::<SpanFields>()
+                    && !fields.0.is_empty()
+                {
+                    jw.comma();
+                    jw.raw(&fields.0);
                 }
                 jw.obj_end();
             }
@@ -233,9 +233,7 @@ where
 /// Format a `SystemTime` as RFC 3339 with microsecond precision in UTC.
 /// e.g. "2026-02-20T12:00:00.000000Z"
 fn format_timestamp(t: SystemTime) -> String {
-    let dur = t
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default();
+    let dur = t.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default();
     let secs = dur.as_secs();
     let micros = dur.subsec_micros();
 
@@ -327,7 +325,10 @@ mod tests {
         jw.val_f64(-0.0_f64);
         let s = jw.finish();
         // -0.0 should be written as a number (not null)
-        assert!(s == "-0" || s == "0" || s == "-0.0" || s == "0.0", "got: {s}");
+        assert!(
+            s == "-0" || s == "0" || s == "-0.0" || s == "0.0",
+            "got: {s}"
+        );
 
         let mut jw = JsonWriter::new();
         jw.val_f64(3.14);
