@@ -87,7 +87,7 @@ fn writer_benchmarks(c: &mut Criterion) {
     group.bench_function("val_f64", |b| {
         b.iter(|| {
             let mut jw = JsonWriter::new();
-            jw.val_f64(black_box(3.14159));
+            jw.val_f64(black_box(2.78128));
             black_box(jw.into_string())
         });
     });
@@ -120,9 +120,8 @@ fn event_benchmarks(c: &mut Criterion) {
 
     group.bench_function("event_simple", |b| {
         let w = TestWriter::new();
-        let dispatch = tracing::Dispatch::new(
-            tracing_subscriber::registry().with(JsonLayer::new(w.clone())),
-        );
+        let dispatch =
+            tracing::Dispatch::new(tracing_subscriber::registry().with(JsonLayer::new(w.clone())));
         b.iter(|| {
             tracing::dispatcher::with_default(&dispatch, || {
                 tracing::info!("hello");
@@ -133,9 +132,8 @@ fn event_benchmarks(c: &mut Criterion) {
 
     group.bench_function("event_fields", |b| {
         let w = TestWriter::new();
-        let dispatch = tracing::Dispatch::new(
-            tracing_subscriber::registry().with(JsonLayer::new(w.clone())),
-        );
+        let dispatch =
+            tracing::Dispatch::new(tracing_subscriber::registry().with(JsonLayer::new(w.clone())));
         b.iter(|| {
             tracing::dispatcher::with_default(&dispatch, || {
                 tracing::info!(
@@ -152,9 +150,8 @@ fn event_benchmarks(c: &mut Criterion) {
 
     group.bench_function("event_nested_spans", |b| {
         let w = TestWriter::new();
-        let dispatch = tracing::Dispatch::new(
-            tracing_subscriber::registry().with(JsonLayer::new(w.clone())),
-        );
+        let dispatch =
+            tracing::Dispatch::new(tracing_subscriber::registry().with(JsonLayer::new(w.clone())));
         b.iter(|| {
             tracing::dispatcher::with_default(&dispatch, || {
                 let outer = tracing::info_span!("outer", req = "r1");
@@ -169,9 +166,8 @@ fn event_benchmarks(c: &mut Criterion) {
 
     group.bench_function("event_escape", |b| {
         let w = TestWriter::new();
-        let dispatch = tracing::Dispatch::new(
-            tracing_subscriber::registry().with(JsonLayer::new(w.clone())),
-        );
+        let dispatch =
+            tracing::Dispatch::new(tracing_subscriber::registry().with(JsonLayer::new(w.clone())));
         b.iter(|| {
             tracing::dispatcher::with_default(&dispatch, || {
                 tracing::info!(text = "say \"hi\"\nnewline\ttab", "escape test");
@@ -183,5 +179,127 @@ fn event_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, writer_benchmarks, event_benchmarks);
+// ──────────────────────────────────────────────────────────────────────────────
+// Group 3: Head-to-head comparison with tracing-subscriber's JSON layer
+// ──────────────────────────────────────────────────────────────────────────────
+
+fn comparison_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("comparison");
+
+    // ── event_simple ────────────────────────────────────────────────────────
+    group.bench_function("event_simple/microjson", |b| {
+        let w = TestWriter::new();
+        let dispatch =
+            tracing::Dispatch::new(tracing_subscriber::registry().with(JsonLayer::new(w.clone())));
+        b.iter(|| {
+            tracing::dispatcher::with_default(&dispatch, || {
+                tracing::info!("hello");
+            });
+            black_box(w.take_output())
+        });
+    });
+
+    group.bench_function("event_simple/tracing-subscriber", |b| {
+        let w = TestWriter::new();
+        let dispatch = tracing::Dispatch::new(
+            tracing_subscriber::fmt()
+                .json()
+                .with_writer(w.clone())
+                .finish(),
+        );
+        b.iter(|| {
+            tracing::dispatcher::with_default(&dispatch, || {
+                tracing::info!("hello");
+            });
+            black_box(w.take_output())
+        });
+    });
+
+    // ── event_fields ────────────────────────────────────────────────────────
+    group.bench_function("event_fields/microjson", |b| {
+        let w = TestWriter::new();
+        let dispatch =
+            tracing::Dispatch::new(tracing_subscriber::registry().with(JsonLayer::new(w.clone())));
+        b.iter(|| {
+            tracing::dispatcher::with_default(&dispatch, || {
+                tracing::info!(
+                    count = 42u64,
+                    flag = true,
+                    ratio = 1.5f64,
+                    name = "Alice",
+                    "msg"
+                );
+            });
+            black_box(w.take_output())
+        });
+    });
+
+    group.bench_function("event_fields/tracing-subscriber", |b| {
+        let w = TestWriter::new();
+        let dispatch = tracing::Dispatch::new(
+            tracing_subscriber::fmt()
+                .json()
+                .with_writer(w.clone())
+                .finish(),
+        );
+        b.iter(|| {
+            tracing::dispatcher::with_default(&dispatch, || {
+                tracing::info!(
+                    count = 42u64,
+                    flag = true,
+                    ratio = 1.5f64,
+                    name = "Alice",
+                    "msg"
+                );
+            });
+            black_box(w.take_output())
+        });
+    });
+
+    // ── event_nested_spans ──────────────────────────────────────────────────
+    group.bench_function("event_nested_spans/microjson", |b| {
+        let w = TestWriter::new();
+        let dispatch =
+            tracing::Dispatch::new(tracing_subscriber::registry().with(JsonLayer::new(w.clone())));
+        b.iter(|| {
+            tracing::dispatcher::with_default(&dispatch, || {
+                let outer = tracing::info_span!("outer", req = "r1");
+                let _og = outer.enter();
+                let inner = tracing::info_span!("inner", step = 2u64);
+                let _ig = inner.enter();
+                tracing::info!("processing");
+            });
+            black_box(w.take_output())
+        });
+    });
+
+    group.bench_function("event_nested_spans/tracing-subscriber", |b| {
+        let w = TestWriter::new();
+        let dispatch = tracing::Dispatch::new(
+            tracing_subscriber::fmt()
+                .json()
+                .with_writer(w.clone())
+                .finish(),
+        );
+        b.iter(|| {
+            tracing::dispatcher::with_default(&dispatch, || {
+                let outer = tracing::info_span!("outer", req = "r1");
+                let _og = outer.enter();
+                let inner = tracing::info_span!("inner", step = 2u64);
+                let _ig = inner.enter();
+                tracing::info!("processing");
+            });
+            black_box(w.take_output())
+        });
+    });
+
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    writer_benchmarks,
+    event_benchmarks,
+    comparison_benchmarks
+);
 criterion_main!(benches);
