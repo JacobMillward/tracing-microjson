@@ -115,12 +115,7 @@ impl JsonWriter {
         self.buf.push('\n');
     }
 
-    /// Return the buffer without the trailing newline (for span field storage).
-    pub(crate) fn finish(self) -> String {
-        self.buf
-    }
-
-    /// Consume and return the buffer (including any trailing newline).
+    /// Consume and return the buffer.
     pub(crate) fn into_string(self) -> String {
         self.buf
     }

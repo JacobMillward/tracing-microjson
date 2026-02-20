@@ -98,7 +98,7 @@ where
         let mut jw = JsonWriter::new();
         let mut visitor = JsonVisitor::new(&mut jw);
         attrs.record(&mut visitor);
-        span.extensions_mut().insert(SpanFields(jw.finish()));
+        span.extensions_mut().insert(SpanFields(jw.into_string()));
     }
 
     fn on_record(
@@ -121,7 +121,7 @@ where
                 JsonVisitor::new(&mut jw)
             };
             values.record(&mut visitor);
-            fields.0 = jw.finish();
+            fields.0 = jw.into_string();
         }
     }
 
@@ -311,19 +311,19 @@ mod tests {
     fn test_f64_edge_cases() {
         let mut jw = JsonWriter::new();
         jw.val_f64(f64::NAN);
-        assert_eq!(jw.finish(), "null");
+        assert_eq!(jw.into_string(), "null");
 
         let mut jw = JsonWriter::new();
         jw.val_f64(f64::INFINITY);
-        assert_eq!(jw.finish(), "null");
+        assert_eq!(jw.into_string(), "null");
 
         let mut jw = JsonWriter::new();
         jw.val_f64(f64::NEG_INFINITY);
-        assert_eq!(jw.finish(), "null");
+        assert_eq!(jw.into_string(), "null");
 
         let mut jw = JsonWriter::new();
         jw.val_f64(-0.0_f64);
-        let s = jw.finish();
+        let s = jw.into_string();
         // -0.0 should be written as a number (not null)
         assert!(
             s == "-0" || s == "0" || s == "-0.0" || s == "0.0",
@@ -332,7 +332,7 @@ mod tests {
 
         let mut jw = JsonWriter::new();
         jw.val_f64(3.14);
-        let s = jw.finish();
+        let s = jw.into_string();
         assert!(s.contains("3.14"), "got: {s}");
     }
 
