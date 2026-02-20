@@ -7,7 +7,7 @@ license = "GPL-3.0-or-later"
 repository = "https://github.com/JacobMillward/tracing-microjson"
 keywords = ["tracing", "json", "logging"]
 categories = ["development-tools::debugging"]
-rust-version = "1.85"
+rust-version = "1.86"
 readme = "README.md"
 exclude = [".github/"]
 
