@@ -345,19 +345,16 @@ fn test_thread_id_compat_with_tracing_subscriber() {
     // Both should have threadId and threadName fields with matching types
     assert!(
         ts_val["threadId"].is_string(),
-        "tracing-subscriber threadId: {}",
-        ts_val
+        "tracing-subscriber threadId: {ts_val}",
     );
-    assert!(our_val["threadId"].is_string(), "our threadId: {}", our_val);
+    assert!(our_val["threadId"].is_string(), "our threadId: {our_val}");
     assert!(
         ts_val["threadName"].is_string(),
-        "tracing-subscriber threadName: {}",
-        ts_val
+        "tracing-subscriber threadName: {ts_val}",
     );
     assert!(
         our_val["threadName"].is_string(),
-        "our threadName: {}",
-        our_val
+        "our threadName: {our_val}",
     );
 
     // Values should match since both run on the same thread
