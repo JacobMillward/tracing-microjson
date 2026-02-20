@@ -50,6 +50,8 @@ tracing_subscriber::registry()
             .with_target(true)          // include event target (default: true)
             .with_file(true)            // include source filename (default: false)
             .with_line_number(true)     // include source line number (default: false)
+            .with_thread_ids(true)      // include thread ID (default: false)
+            .with_thread_names(true)    // include thread name (default: false)
             .flatten_event(true),       // flatten fields to top level (default: false)
     )
     .init();
@@ -68,7 +70,7 @@ All comparisons are against `tracing-subscriber` with its `json` feature enabled
 | Target, file, line      |               ✅ Yes               |      ✅ Yes       |
 | `flatten_event`         |               ✅ Yes               |      ✅ Yes       |
 | Custom timestamps       |               ✅ Yes               |    🔜 Not yet     |
-| Thread ID / name        |               ✅ Yes               |    🔜 Not yet     |
+| Thread ID / name        |               ✅ Yes               |      ✅ Yes       |
 | Custom field formatters |               ✅ Yes               |    🔜 Not yet     |
 | Serialization deps      | serde + serde_json + tracing-serde |      ✅ None      |
 

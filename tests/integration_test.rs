@@ -232,6 +232,130 @@ fn test_compatibility_with_tracing_subscriber_json() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Thread ID / name tests
+// ──────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_thread_id_present() {
+    let w = TestWriter::new();
+    let layer = JsonLayer::new(w.clone()).with_thread_ids(true);
+    let subscriber = tracing_subscriber::registry().with(layer);
+    tracing::subscriber::with_default(subscriber, || {
+        tracing::info!("with thread id");
+    });
+    let v = parse_line(w.output().trim());
+    assert!(
+        v["threadId"].is_string(),
+        "threadId should be a string, got: {}",
+        v["threadId"]
+    );
+    let tid = v["threadId"].as_str().unwrap();
+    assert!(
+        tid.starts_with("ThreadId("),
+        "threadId should start with 'ThreadId(', got: {tid}"
+    );
+}
+
+#[test]
+fn test_thread_name_present() {
+    let w = TestWriter::new();
+    let layer = JsonLayer::new(w.clone()).with_thread_names(true);
+    let subscriber = tracing_subscriber::registry().with(layer);
+    tracing::subscriber::with_default(subscriber, || {
+        tracing::info!("with thread name");
+    });
+    let v = parse_line(w.output().trim());
+    assert!(
+        v["threadName"].is_string(),
+        "threadName should be a string, got: {}",
+        v["threadName"]
+    );
+}
+
+#[test]
+fn test_thread_fields_absent_by_default() {
+    let w = TestWriter::new();
+    let subscriber = tracing_subscriber::registry().with(JsonLayer::new(w.clone()));
+    tracing::subscriber::with_default(subscriber, || {
+        tracing::info!("default config");
+    });
+    let v = parse_line(w.output().trim());
+    assert!(v.get("threadId").is_none(), "threadId should be absent by default");
+    assert!(v.get("threadName").is_none(), "threadName should be absent by default");
+}
+
+#[test]
+fn test_thread_id_and_name_together() {
+    let w = TestWriter::new();
+    let layer = JsonLayer::new(w.clone())
+        .with_thread_ids(true)
+        .with_thread_names(true);
+    let subscriber = tracing_subscriber::registry().with(layer);
+    tracing::subscriber::with_default(subscriber, || {
+        tracing::info!("both");
+    });
+    let v = parse_line(w.output().trim());
+    assert!(v["threadId"].is_string());
+    assert!(v["threadName"].is_string());
+}
+
+#[test]
+fn test_thread_id_compat_with_tracing_subscriber() {
+    use tracing_subscriber::fmt;
+
+    // Capture output from tracing-subscriber's JSON formatter with thread info
+    let ts_writer = TestWriter::new();
+    {
+        let subscriber = tracing_subscriber::registry().with(
+            fmt::Layer::new()
+                .json()
+                .with_writer(ts_writer.clone())
+                .with_thread_ids(true)
+                .with_thread_names(true)
+                .with_current_span(true)
+                .with_span_list(true),
+        );
+        tracing::subscriber::with_default(subscriber, || {
+            tracing::info!("compat");
+        });
+    }
+
+    // Capture output from our JsonLayer with thread info
+    let our_writer = TestWriter::new();
+    {
+        let subscriber = tracing_subscriber::registry().with(
+            JsonLayer::new(our_writer.clone())
+                .with_thread_ids(true)
+                .with_thread_names(true),
+        );
+        tracing::subscriber::with_default(subscriber, || {
+            tracing::info!("compat");
+        });
+    }
+
+    let ts_val = parse_line(ts_writer.output().trim());
+    let our_val = parse_line(our_writer.output().trim());
+
+    // Both should have threadId and threadName fields with matching types
+    assert!(ts_val["threadId"].is_string(), "tracing-subscriber threadId: {}", ts_val);
+    assert!(our_val["threadId"].is_string(), "our threadId: {}", our_val);
+    assert!(ts_val["threadName"].is_string(), "tracing-subscriber threadName: {}", ts_val);
+    assert!(our_val["threadName"].is_string(), "our threadName: {}", our_val);
+
+    // Values should match since both run on the same thread
+    assert_eq!(
+        ts_val["threadId"], our_val["threadId"],
+        "threadId should match: ts={} ours={}",
+        ts_val["threadId"], our_val["threadId"]
+    );
+    assert_eq!(
+        ts_val["threadName"], our_val["threadName"],
+        "threadName should match: ts={} ours={}",
+        ts_val["threadName"], our_val["threadName"]
+    );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Coverage gap tests
 // ──────────────────────────────────────────────────────────────────────────────
 

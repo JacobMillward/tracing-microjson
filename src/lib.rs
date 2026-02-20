@@ -38,6 +38,8 @@
 //! | [`JsonLayer::with_target`] | `true` | Include the event target (module path) |
 //! | [`JsonLayer::with_file`] | `false` | Include the source filename |
 //! | [`JsonLayer::with_line_number`] | `false` | Include the source line number |
+//! | [`JsonLayer::with_thread_ids`] | `false` | Include the thread ID |
+//! | [`JsonLayer::with_thread_names`] | `false` | Include the thread name |
 //! | [`JsonLayer::flatten_event`] | `false` | Flatten event fields to the top level instead of nesting under `"fields"` |
 //!
 //! # Output format
@@ -90,6 +92,8 @@ pub struct JsonLayer<W> {
     display_target: bool,
     display_filename: bool,
     display_line_number: bool,
+    display_thread_id: bool,
+    display_thread_name: bool,
     flatten_event: bool,
 }
 
@@ -107,6 +111,8 @@ where
             display_target: true,
             display_filename: false,
             display_line_number: false,
+            display_thread_id: false,
+            display_thread_name: false,
             flatten_event: false,
         }
     }
@@ -132,6 +138,22 @@ where
     /// Default: **`false`**.
     pub fn with_line_number(mut self, display_line: bool) -> Self {
         self.display_line_number = display_line;
+        self
+    }
+
+    /// Set whether the `threadId` field is included in output.
+    ///
+    /// Default: **`false`**.
+    pub fn with_thread_ids(mut self, display_thread_id: bool) -> Self {
+        self.display_thread_id = display_thread_id;
+        self
+    }
+
+    /// Set whether the `threadName` field is included in output.
+    ///
+    /// Default: **`false`**.
+    pub fn with_thread_names(mut self, display_thread_name: bool) -> Self {
+        self.display_thread_name = display_thread_name;
         self
     }
 
@@ -240,6 +262,24 @@ where
             jw.comma();
             jw.key("line_number");
             jw.val_u64(line as u64);
+        }
+
+        // thread ID
+        if self.display_thread_id {
+            jw.comma();
+            jw.key("threadId");
+            jw.val_str(&format!("{:?}", std::thread::current().id()));
+        }
+
+        // thread name
+        if self.display_thread_name {
+            jw.comma();
+            jw.key("threadName");
+            if let Some(name) = std::thread::current().name() {
+                jw.val_str(name);
+            } else {
+                jw.val_str("");
+            }
         }
 
         // current span and spans list
