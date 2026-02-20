@@ -347,4 +347,23 @@ mod tests {
         let s = format_timestamp(t);
         assert_eq!(s, "2026-02-20T12:00:00.000000Z");
     }
+
+    #[test]
+    fn test_timestamp_microsecond_precision() {
+        // 2026-02-20T12:00:00Z + 123456 µs → .123456
+        let t = SystemTime::UNIX_EPOCH
+            + std::time::Duration::from_micros(1_771_588_800 * 1_000_000 + 123_456);
+        let s = format_timestamp(t);
+        assert_eq!(s, "2026-02-20T12:00:00.123456Z");
+
+        // Exactly 1 µs past epoch
+        let t = SystemTime::UNIX_EPOCH + std::time::Duration::from_micros(1);
+        let s = format_timestamp(t);
+        assert_eq!(s, "1970-01-01T00:00:00.000001Z");
+
+        // 999999 µs (all six digits occupied)
+        let t = SystemTime::UNIX_EPOCH + std::time::Duration::from_micros(999_999);
+        let s = format_timestamp(t);
+        assert_eq!(s, "1970-01-01T00:00:00.999999Z");
+    }
 }
