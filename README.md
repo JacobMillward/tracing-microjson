@@ -76,12 +76,12 @@ All comparisons are against `tracing-subscriber` with its `json` feature enabled
 
 ### Dependencies
 
-Both configurations start from `tracing-subscriber` with the `fmt` + `registry` features (7 crates).
+Both configurations start from `tracing` + `tracing-subscriber` with the `fmt` + `registry` features (14 crates in common).
 
 | Approach                            |  Additional crates   | Total  |
 | ----------------------------------- | :------------------: | :----: |
-| `tracing-microjson`                 | **+1** (this crate)  | **8**  |
-| `tracing-subscriber` `json` feature | +9 (serde ecosystem) | **16** |
+| `tracing-microjson`                 | **+1** (this crate)  | **15** |
+| `tracing-subscriber` `json` feature | +7 (serde ecosystem) | **21** |
 
 ### Binary size
 
@@ -92,7 +92,7 @@ Minimal "hello world" JSON logging binary (release, LTO, stripped):
 | `tracing-microjson`                      | **377 KiB (23% smaller)** |
 | `tracing-subscriber` with `json` feature |                   490 KiB |
 
-<sub>aarch64-apple-darwin, Rust 1.85, `strip = true`, `lto = true`.</sub>
+<sub>aarch64-apple-darwin, Rust 1.93, `strip = true`, `lto = true`.</sub>
 
 ### Performance
 
@@ -100,15 +100,15 @@ Head-to-head benchmarks on the same workload (lower is better):
 
 | Scenario          | tracing-microjson | tracing-subscriber | Speedup |
 | ----------------- | ----------------: | -----------------: | :-----: |
-| Simple event      |            685 ns |             737 ns |  1.08x  |
-| Event with fields |            824 ns |           1,039 ns |  1.26x  |
-| Nested spans      |          1,313 ns |           2,475 ns |  1.89x  |
+| Simple event      |            705 ns |             749 ns |  1.06x  |
+| Event with fields |            851 ns |           1,042 ns |  1.22x  |
+| Nested spans      |          1,281 ns |           2,456 ns |  1.92x  |
 
-<sub>Apple M1 Max, Rust 1.85, criterion 0.5. Run `cargo bench --features _bench_internals` to reproduce.</sub>
+<sub>Apple M1 Max, Rust 1.93, criterion 0.8. Run `cargo bench --features _bench_internals` to reproduce.</sub>
 
 ## MSRV
 
-The minimum supported Rust version is **1.85** (edition 2024).
+The minimum supported Rust version is **1.86** (edition 2024).
 
 ## License
 
