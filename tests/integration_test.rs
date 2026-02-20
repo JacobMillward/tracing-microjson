@@ -270,6 +270,43 @@ fn test_i64_negative_field() {
 }
 
 #[test]
+fn test_record_u128_field() {
+    let w = TestWriter::new();
+    let subscriber = tracing_subscriber::registry().with(JsonLayer::new(w.clone()));
+    tracing::subscriber::with_default(subscriber, || {
+        tracing::info!(
+            big = 340_282_366_920_938_463_463_374_607_431_768_211_455u128,
+            "u128 max"
+        );
+    });
+    let v = parse_line(w.output().trim());
+    // u128 values are emitted as JSON strings since JSON numbers can't represent the full range
+    assert_eq!(
+        v["fields"]["big"],
+        "340282366920938463463374607431768211455"
+    );
+    assert_eq!(v["fields"]["message"], "u128 max");
+}
+
+#[test]
+fn test_record_i128_field() {
+    let w = TestWriter::new();
+    let subscriber = tracing_subscriber::registry().with(JsonLayer::new(w.clone()));
+    tracing::subscriber::with_default(subscriber, || {
+        tracing::info!(
+            neg = -170_141_183_460_469_231_731_687_303_715_884_105_728i128,
+            "i128 min"
+        );
+    });
+    let v = parse_line(w.output().trim());
+    assert_eq!(
+        v["fields"]["neg"],
+        "-170141183460469231731687303715884105728"
+    );
+    assert_eq!(v["fields"]["message"], "i128 min");
+}
+
+#[test]
 fn test_record_debug_field() {
     #[derive(Debug)]
     #[allow(dead_code)]
