@@ -1,22 +1,20 @@
-/// Escape a string for JSON output per RFC 8259.
-pub(crate) fn escape_json(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
+/// Write JSON-escaped content for `s` directly into `buf` per [RFC 8259](https://www.rfc-editor.org/rfc/rfc8259).
+fn escape_json_into(s: &str, buf: &mut String) {
     for c in s.chars() {
         match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\x08' => out.push_str("\\b"),
-            '\x0C' => out.push_str("\\f"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
+            '"' => buf.push_str("\\\""),
+            '\\' => buf.push_str("\\\\"),
+            '\x08' => buf.push_str("\\b"),
+            '\x0C' => buf.push_str("\\f"),
+            '\n' => buf.push_str("\\n"),
+            '\r' => buf.push_str("\\r"),
+            '\t' => buf.push_str("\\t"),
             c if (c as u32) < 0x20 => {
-                out.push_str(&format!("\\u{:04x}", c as u32));
+                buf.push_str(&format!("\\u{:04x}", c as u32));
             }
-            c => out.push(c),
+            c => buf.push(c),
         }
     }
-    out
 }
 
 /// A minimal JSON string builder that writes into a `String` buffer.
@@ -64,7 +62,7 @@ impl JsonWriter {
     /// Write a JSON string value with proper escaping.
     pub(crate) fn val_str(&mut self, s: &str) {
         self.buf.push('"');
-        self.buf.push_str(&escape_json(s));
+        escape_json_into(s, &mut self.buf);
         self.buf.push('"');
     }
 

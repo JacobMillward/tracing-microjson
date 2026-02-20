@@ -280,31 +280,38 @@ fn days_to_ymd(days: u64) -> (u64, u64, u64) {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_escape_json_basic() {
-        assert_eq!(writer::escape_json("hello"), "hello");
-        assert_eq!(writer::escape_json("say \"hi\""), r#"say \"hi\""#);
-        assert_eq!(writer::escape_json("back\\slash"), r#"back\\slash"#);
-        assert_eq!(writer::escape_json(""), "");
+    /// Helper: write a string through val_str and return the raw buffer content.
+    fn val_str_output(s: &str) -> String {
+        let mut jw = JsonWriter::new();
+        jw.val_str(s);
+        jw.into_string()
     }
 
     #[test]
-    fn test_escape_json_control_chars() {
-        assert_eq!(writer::escape_json("\n"), r"\n");
-        assert_eq!(writer::escape_json("\r"), r"\r");
-        assert_eq!(writer::escape_json("\t"), r"\t");
-        assert_eq!(writer::escape_json("\x08"), r"\b");
-        assert_eq!(writer::escape_json("\x0C"), r"\f");
+    fn test_val_str_basic() {
+        assert_eq!(val_str_output("hello"), r#""hello""#);
+        assert_eq!(val_str_output("say \"hi\""), r#""say \"hi\"""#);
+        assert_eq!(val_str_output("back\\slash"), r#""back\\slash""#);
+        assert_eq!(val_str_output(""), r#""""#);
+    }
+
+    #[test]
+    fn test_val_str_control_chars() {
+        assert_eq!(val_str_output("\n"), r#""\n""#);
+        assert_eq!(val_str_output("\r"), r#""\r""#);
+        assert_eq!(val_str_output("\t"), r#""\t""#);
+        assert_eq!(val_str_output("\x08"), r#""\b""#);
+        assert_eq!(val_str_output("\x0C"), r#""\f""#);
         // U+0001 → \u0001
-        assert_eq!(writer::escape_json("\x01"), r"\u0001");
-        assert_eq!(writer::escape_json("\x1F"), r"\u001f");
+        assert_eq!(val_str_output("\x01"), r#""\u0001""#);
+        assert_eq!(val_str_output("\x1F"), r#""\u001f""#);
     }
 
     #[test]
-    fn test_escape_json_unicode_passthrough() {
+    fn test_val_str_unicode_passthrough() {
         // Non-ASCII but above U+001F should pass through unescaped
-        assert_eq!(writer::escape_json("café"), "café");
-        assert_eq!(writer::escape_json("日本語"), "日本語");
+        assert_eq!(val_str_output("café"), "\"café\"");
+        assert_eq!(val_str_output("日本語"), "\"日本語\"");
     }
 
     #[test]
