@@ -55,7 +55,11 @@ tracing_subscriber::registry()
     .init();
 ```
 
-## Feature comparison
+## Comparisons
+
+All comparisons are against `tracing-subscriber` with its `json` feature enabled.
+
+### Features
 
 | Feature                 |     tracing-subscriber `json`      | tracing-microjson |
 | ----------------------- | :--------------------------------: | :---------------: |
@@ -68,7 +72,7 @@ tracing_subscriber::registry()
 | Custom field formatters |               ✅ Yes               |    🔜 Not yet     |
 | Serialization deps      | serde + serde_json + tracing-serde |      ✅ None      |
 
-## Dependency comparison
+### Dependencies
 
 Both configurations start from `tracing-subscriber` with the `fmt` + `registry` features (7 crates).
 
@@ -77,7 +81,7 @@ Both configurations start from `tracing-subscriber` with the `fmt` + `registry` 
 | `tracing-microjson`                 | **+1** (this crate)  | **8**  |
 | `tracing-subscriber` `json` feature | +9 (serde ecosystem) | **16** |
 
-## Binary size
+### Binary size
 
 Minimal "hello world" JSON logging binary (release, LTO, stripped):
 
@@ -88,7 +92,7 @@ Minimal "hello world" JSON logging binary (release, LTO, stripped):
 
 <sub>aarch64-apple-darwin, Rust 1.85, `strip = true`, `lto = true`.</sub>
 
-## Performance
+### Performance
 
 Head-to-head benchmarks on the same workload (lower is better):
 
