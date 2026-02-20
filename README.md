@@ -9,6 +9,8 @@ A [`tracing`] layer that outputs JSON-formatted logs **without pulling in serde,
 
 [`tracing`]: https://docs.rs/tracing
 
+**Quick Links:** [Why?](#why) | [Who is this for?](#who-is-this-for) | [Usage](#usage) | [Configuration](#configuration) | [Comparisons](#comparisons) | [MSRV](#msrv)
+
 ## Why?
 
 Enabling the `json` feature on `tracing-subscriber` pulls in 7 additional crates
@@ -79,19 +81,19 @@ All comparisons are against `tracing-subscriber` with its `json` feature enabled
 
 Both configurations start from `tracing` + `tracing-subscriber` with the `fmt` + `registry` features (14 crates in common).
 
-| Approach                            |  Additional crates   | Total  |
-| ----------------------------------- | :------------------: | :----: |
-| `tracing-microjson`                 | **+1** (this crate)  | **15** |
-| `tracing-subscriber` `json` feature | +7 (serde ecosystem) | **21** |
+| Approach                    |  Additional crates   | Total  |
+| --------------------------- | :------------------: | :----: |
+| `tracing-microjson`         | **+1** (this crate)  | **15** |
+| `tracing-subscriber` `json` | +7 (serde ecosystem) | **21** |
 
 ### Binary size
 
 Minimal "hello world" JSON logging binary (release, LTO, stripped):
 
-| Approach                                 |                      Size |
-| ---------------------------------------- | ------------------------: |
-| `tracing-microjson`                      | **377 KiB (23% smaller)** |
-| `tracing-subscriber` with `json` feature |                   490 KiB |
+| Approach                    |                      Size |
+| --------------------------- | ------------------------: |
+| `tracing-microjson`         | **377 KiB (23% smaller)** |
+| `tracing-subscriber` `json` |                   490 KiB |
 
 <sub>aarch64-apple-darwin, Rust 1.93, `strip = true`, `lto = true`.</sub>
 
