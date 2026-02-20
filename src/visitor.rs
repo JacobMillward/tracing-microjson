@@ -54,6 +54,24 @@ impl<'a> Visit for JsonVisitor<'a> {
         self.writer.val_i64(value);
     }
 
+    fn record_u128(&mut self, field: &Field, value: u128) {
+        if !self.first {
+            self.writer.comma();
+        }
+        self.first = false;
+        self.writer.key(field.name());
+        self.writer.val_str(&value.to_string());
+    }
+
+    fn record_i128(&mut self, field: &Field, value: i128) {
+        if !self.first {
+            self.writer.comma();
+        }
+        self.first = false;
+        self.writer.key(field.name());
+        self.writer.val_str(&value.to_string());
+    }
+
     fn record_f64(&mut self, field: &Field, value: f64) {
         if !self.first {
             self.writer.comma();
