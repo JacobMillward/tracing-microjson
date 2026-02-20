@@ -237,6 +237,7 @@ fn test_compatibility_with_tracing_subscriber_json() {
 
 #[test]
 fn test_all_log_levels() {
+    #[allow(clippy::type_complexity)]
     let cases: &[(&str, Box<dyn Fn()>)] = &[
         ("TRACE", Box::new(|| tracing::trace!("msg"))),
         ("DEBUG", Box::new(|| tracing::debug!("msg"))),

@@ -342,9 +342,9 @@ mod tests {
         );
 
         let mut jw = JsonWriter::new();
-        jw.val_f64(3.14);
+        jw.val_f64(2.78);
         let s = jw.into_string();
-        assert!(s.contains("3.14"), "got: {s}");
+        assert!(s.contains("2.78"), "got: {s}");
     }
 
     #[test]
