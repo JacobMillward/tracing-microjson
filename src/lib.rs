@@ -293,7 +293,7 @@ where
             jw.comma();
         }
         jw.key("level");
-        jw.val_str(&event.metadata().level().to_string());
+        jw.val_str(event.metadata().level().as_str());
 
         if self.flatten_event {
             // Event fields flattened to top level
