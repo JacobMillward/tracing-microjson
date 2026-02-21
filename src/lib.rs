@@ -272,8 +272,7 @@ where
         let mut jw = JsonWriter::new();
         let mut visitor = JsonVisitor::new(&mut jw);
         attrs.record(&mut visitor);
-        span.extensions_mut()
-            .insert(SpanFields(jw.into_vec()));
+        span.extensions_mut().insert(SpanFields(jw.into_vec()));
     }
 
     fn on_record(
@@ -463,7 +462,10 @@ fn write_timestamp(t: SystemTime, w: &mut impl std::fmt::Write) -> std::fmt::Res
 
     let (year, month, day, hour, min, sec) = secs_to_datetime(secs);
 
-    write!(w, "{year:04}-{month:02}-{day:02}T{hour:02}:{min:02}:{sec:02}.{micros:06}Z")
+    write!(
+        w,
+        "{year:04}-{month:02}-{day:02}T{hour:02}:{min:02}:{sec:02}.{micros:06}Z"
+    )
 }
 
 /// Format a `SystemTime` as RFC 3339 with microsecond precision in UTC.

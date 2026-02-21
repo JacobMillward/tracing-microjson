@@ -100,12 +100,20 @@ impl JsonWriter {
         self.buf.push(b'"');
     }
 
-    pub fn val_u64(&mut self, v: u64) { self.write_int(v) }
-    pub fn val_i64(&mut self, v: i64) { self.write_int(v) }
+    pub fn val_u64(&mut self, v: u64) {
+        self.write_int(v)
+    }
+    pub fn val_i64(&mut self, v: i64) {
+        self.write_int(v)
+    }
 
     /// Write a u128/i128 as a quoted JSON string (to preserve full precision).
-    pub fn val_u128(&mut self, v: u128) { self.write_quoted_int(v) }
-    pub fn val_i128(&mut self, v: i128) { self.write_quoted_int(v) }
+    pub fn val_u128(&mut self, v: u128) {
+        self.write_quoted_int(v)
+    }
+    pub fn val_i128(&mut self, v: i128) {
+        self.write_quoted_int(v)
+    }
 
     fn write_int(&mut self, v: impl fmt::Display) {
         write!(self, "{v}").unwrap();

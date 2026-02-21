@@ -7,8 +7,11 @@ pub fn benchmarks<M: Measurement>(c: &mut Criterion<M>, prefix: &str) {
 
     group.bench_function("event_simple", |b| {
         let dispatch = tracing::Dispatch::new(
-            tracing_subscriber::registry()
-                .with(JsonLayer::new(std::io::sink).without_time().with_target(false)),
+            tracing_subscriber::registry().with(
+                JsonLayer::new(std::io::sink)
+                    .without_time()
+                    .with_target(false),
+            ),
         );
         b.iter(|| {
             tracing::dispatcher::with_default(&dispatch, || {
@@ -19,8 +22,11 @@ pub fn benchmarks<M: Measurement>(c: &mut Criterion<M>, prefix: &str) {
 
     group.bench_function("event_fields", |b| {
         let dispatch = tracing::Dispatch::new(
-            tracing_subscriber::registry()
-                .with(JsonLayer::new(std::io::sink).without_time().with_target(false)),
+            tracing_subscriber::registry().with(
+                JsonLayer::new(std::io::sink)
+                    .without_time()
+                    .with_target(false),
+            ),
         );
         b.iter(|| {
             tracing::dispatcher::with_default(&dispatch, || {
@@ -37,8 +43,11 @@ pub fn benchmarks<M: Measurement>(c: &mut Criterion<M>, prefix: &str) {
 
     group.bench_function("event_nested_spans", |b| {
         let dispatch = tracing::Dispatch::new(
-            tracing_subscriber::registry()
-                .with(JsonLayer::new(std::io::sink).without_time().with_target(false)),
+            tracing_subscriber::registry().with(
+                JsonLayer::new(std::io::sink)
+                    .without_time()
+                    .with_target(false),
+            ),
         );
         b.iter(|| {
             tracing::dispatcher::with_default(&dispatch, || {
@@ -53,8 +62,11 @@ pub fn benchmarks<M: Measurement>(c: &mut Criterion<M>, prefix: &str) {
 
     group.bench_function("event_escape", |b| {
         let dispatch = tracing::Dispatch::new(
-            tracing_subscriber::registry()
-                .with(JsonLayer::new(std::io::sink).without_time().with_target(false)),
+            tracing_subscriber::registry().with(
+                JsonLayer::new(std::io::sink)
+                    .without_time()
+                    .with_target(false),
+            ),
         );
         b.iter(|| {
             tracing::dispatcher::with_default(&dispatch, || {
@@ -72,8 +84,11 @@ pub fn benchmarks<M: Measurement>(c: &mut Criterion<M>, prefix: &str) {
         }
         let point = Point { x: 1.0, y: 2.0 };
         let dispatch = tracing::Dispatch::new(
-            tracing_subscriber::registry()
-                .with(JsonLayer::new(std::io::sink).without_time().with_target(false)),
+            tracing_subscriber::registry().with(
+                JsonLayer::new(std::io::sink)
+                    .without_time()
+                    .with_target(false),
+            ),
         );
         b.iter(|| {
             tracing::dispatcher::with_default(&dispatch, || {

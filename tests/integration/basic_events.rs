@@ -1,4 +1,4 @@
-use super::common::{parse_line, TestWriter};
+use super::common::{TestWriter, parse_line};
 use tracing_microjson::JsonLayer;
 use tracing_subscriber::prelude::*;
 

@@ -28,7 +28,7 @@ formatter with zero serialization framework dependencies.
 
 ```toml
 [dependencies]
-tracing-microjson = "0.1"
+tracing-microjson = "0.3"
 ```
 
 ```rust
@@ -99,13 +99,21 @@ Minimal "hello world" JSON logging binary (release, LTO, stripped):
 
 ### Performance
 
-Head-to-head benchmarks on the same workload (lower is better):
+Head-to-head timing benchmarks (lower is better):
 
 | Scenario          | tracing-microjson | tracing-subscriber | Speedup |
 | ----------------- | ----------------: | -----------------: | :-----: |
-| Simple event      |            705 ns |             749 ns |  1.06x  |
-| Event with fields |            851 ns |           1,042 ns |  1.22x  |
-| Nested spans      |          1,281 ns |           2,456 ns |  1.92x  |
+| Simple event      |            315 ns |             748 ns |  2.4x   |
+| Event with fields |            425 ns |           1,045 ns |  2.5x   |
+| Nested spans      |            877 ns |           2,508 ns |  2.9x   |
+
+Heap allocations per event (after first-event warmup):
+
+| Scenario          | tracing-microjson | tracing-subscriber |
+| ----------------- | ----------------: | -----------------: |
+| Simple event      |             **0** |                  0 |
+| Event with fields |             **0** |                  0 |
+| Nested spans      |             **6** |                 17 |
 
 <sub>Apple M1 Max, Rust 1.93, criterion 0.8. Run `cargo bench --features _bench_internals` to reproduce.</sub>
 
