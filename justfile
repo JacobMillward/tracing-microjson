@@ -18,3 +18,14 @@ test:
 # Build docs
 doc:
     RUSTDOCFLAGS="-D warnings" cargo +{{msrv}} doc --no-deps
+
+# Run allocation-counting benchmarks
+bench-alloc:
+    cargo bench --bench alloc --features _bench_internals
+
+# Run timing benchmarks
+bench-timing:
+    cargo bench --bench json_formatting --features _bench_internals
+
+# Run all benchmarks
+bench: bench-timing bench-alloc
