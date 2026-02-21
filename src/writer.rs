@@ -133,6 +133,22 @@ impl JsonWriter {
         self.buf.extend_from_slice(b"null");
     }
 
+    /// Write a JSON string value from a `Debug` value, streaming the escape
+    /// so no intermediate `String` is allocated.
+    pub fn val_debug(&mut self, value: &dyn fmt::Debug) {
+        self.buf.push(b'"');
+        let _ = write!(JsonEscapingWriter { buf: &mut self.buf }, "{value:?}");
+        self.buf.push(b'"');
+    }
+
+    /// Write a JSON string value from a `Display` value, streaming the escape
+    /// so no intermediate `String` is allocated.
+    pub fn val_display(&mut self, value: &dyn fmt::Display) {
+        self.buf.push(b'"');
+        let _ = write!(JsonEscapingWriter { buf: &mut self.buf }, "{value}");
+        self.buf.push(b'"');
+    }
+
     pub fn comma(&mut self) {
         self.buf.push(b',');
     }
@@ -181,6 +197,21 @@ impl Default for JsonWriter {
 impl fmt::Write for JsonWriter {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.buf.extend_from_slice(s.as_bytes());
+        Ok(())
+    }
+}
+
+/// An `fmt::Write` adapter that JSON-escapes all text written through it.
+///
+/// Used by [`JsonWriter::val_debug`] and [`JsonWriter::val_display`] to
+/// stream-escape `Debug`/`Display` output without an intermediate `String`.
+struct JsonEscapingWriter<'a> {
+    buf: &'a mut Vec<u8>,
+}
+
+impl fmt::Write for JsonEscapingWriter<'_> {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        escape_json_into(s, self.buf);
         Ok(())
     }
 }
