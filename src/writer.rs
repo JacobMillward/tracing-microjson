@@ -1,79 +1,111 @@
+use std::fmt::{self, Write as _};
+
 /// Write JSON-escaped content for `s` directly into `buf` per [RFC 8259](https://www.rfc-editor.org/rfc/rfc8259).
-fn escape_json_into(s: &str, buf: &mut String) {
-    for c in s.chars() {
-        match c {
-            '"' => buf.push_str("\\\""),
-            '\\' => buf.push_str("\\\\"),
-            '\x08' => buf.push_str("\\b"),
-            '\x0C' => buf.push_str("\\f"),
-            '\n' => buf.push_str("\\n"),
-            '\r' => buf.push_str("\\r"),
-            '\t' => buf.push_str("\\t"),
-            c if (c as u32) < 0x20 => {
-                buf.push_str(&format!("\\u{:04x}", c as u32));
+///
+/// Uses byte-level scanning: safe ranges are flushed in bulk with a single
+/// `extend_from_slice`, so the common case (no characters to escape) copies
+/// the entire input in one shot.
+fn escape_json_into(s: &str, buf: &mut Vec<u8>) {
+    let bytes = s.as_bytes();
+    let mut start = 0;
+
+    for (i, &b) in bytes.iter().enumerate() {
+        let escape = match b {
+            b'"' => &b"\\\""[..],
+            b'\\' => &b"\\\\"[..],
+            b'\x08' => &b"\\b"[..],
+            b'\x0C' => &b"\\f"[..],
+            b'\n' => &b"\\n"[..],
+            b'\r' => &b"\\r"[..],
+            b'\t' => &b"\\t"[..],
+            b if b < 0x20 => {
+                // Flush the safe range before this byte
+                buf.extend_from_slice(&bytes[start..i]);
+                // \u00XX — the two hex nibbles
+                const HEX: &[u8; 16] = b"0123456789abcdef";
+                buf.extend_from_slice(b"\\u00");
+                buf.push(HEX[(b >> 4) as usize]);
+                buf.push(HEX[(b & 0x0F) as usize]);
+                start = i + 1;
+                continue;
             }
-            c => buf.push(c),
-        }
+            _ => {
+                continue;
+            }
+        };
+        // Flush safe range, then the fixed escape sequence
+        buf.extend_from_slice(&bytes[start..i]);
+        buf.extend_from_slice(escape);
+        start = i + 1;
     }
+
+    // Final flush of any remaining safe bytes
+    buf.extend_from_slice(&bytes[start..]);
 }
 
-use std::fmt::Write;
-
-/// A minimal JSON string builder that writes into a `String` buffer.
+/// A minimal JSON string builder backed by a `Vec<u8>` buffer.
+///
+/// Implements [`fmt::Write`] so it can be used as a sink for `write!` macros
+/// and with [`tracing_subscriber::fmt::format::Writer`].
 pub struct JsonWriter {
-    buf: String,
+    buf: Vec<u8>,
 }
 
 impl JsonWriter {
     /// Create a new, empty writer.
     pub fn new() -> Self {
-        Self { buf: String::new() }
+        Self { buf: Vec::new() }
+    }
+
+    /// Create a writer that wraps an existing `Vec<u8>` (for buffer reuse).
+    pub fn from_vec(buf: Vec<u8>) -> Self {
+        Self { buf }
     }
 
     /// Create a writer that continues from existing content (e.g. span field fragments).
     /// The existing content is treated as already-written key-value pairs.
-    pub fn continuing(existing: &str) -> Self {
+    pub fn continuing(existing: &[u8]) -> Self {
         Self {
-            buf: existing.to_owned(),
+            buf: existing.to_vec(),
         }
     }
 
     pub fn obj_start(&mut self) {
-        self.buf.push('{');
+        self.buf.push(b'{');
     }
 
     pub fn obj_end(&mut self) {
-        self.buf.push('}');
+        self.buf.push(b'}');
     }
 
     pub fn arr_start(&mut self) {
-        self.buf.push('[');
+        self.buf.push(b'[');
     }
 
     pub fn arr_end(&mut self) {
-        self.buf.push(']');
+        self.buf.push(b']');
     }
 
     /// Write a JSON object key (field names are Rust identifiers, safe without escaping).
     pub fn key(&mut self, name: &str) {
-        self.buf.push('"');
-        self.buf.push_str(name);
-        self.buf.push_str("\":");
+        self.buf.push(b'"');
+        self.buf.extend_from_slice(name.as_bytes());
+        self.buf.extend_from_slice(b"\":");
     }
 
     /// Write a JSON string value with proper escaping.
     pub fn val_str(&mut self, s: &str) {
-        self.buf.push('"');
+        self.buf.push(b'"');
         escape_json_into(s, &mut self.buf);
-        self.buf.push('"');
+        self.buf.push(b'"');
     }
 
     pub fn val_u64(&mut self, v: u64) {
-        write!(self.buf, "{v}").unwrap();
+        write!(self, "{v}").unwrap();
     }
 
     pub fn val_i64(&mut self, v: i64) {
-        write!(self.buf, "{v}").unwrap();
+        write!(self, "{v}").unwrap();
     }
 
     pub fn val_f64(&mut self, v: f64) {
@@ -83,38 +115,59 @@ impl JsonWriter {
             // Format like serde_json: use Rust's default Display which gives
             // enough precision and handles -0.0 correctly.
             let start = self.buf.len();
-            write!(self.buf, "{v}").unwrap();
+            write!(self, "{v}").unwrap();
             // serde_json always includes a decimal point for floats
             let written = &self.buf[start..];
-            if !written.contains('.') && !written.contains('e') && !written.contains('E') {
-                self.buf.push_str(".0");
+            if !written.contains(&b'.') && !written.contains(&b'e') && !written.contains(&b'E') {
+                self.buf.extend_from_slice(b".0");
             }
         }
     }
 
     pub fn val_bool(&mut self, v: bool) {
-        self.buf.push_str(if v { "true" } else { "false" });
+        self.buf
+            .extend_from_slice(if v { b"true" } else { b"false" });
     }
 
     pub fn val_null(&mut self) {
-        self.buf.push_str("null");
+        self.buf.extend_from_slice(b"null");
     }
 
     pub fn comma(&mut self) {
-        self.buf.push(',');
+        self.buf.push(b',');
     }
 
-    /// Write raw JSON content (pre-formatted fragment).
-    pub fn raw(&mut self, s: &str) {
-        self.buf.push_str(s);
+    /// Write raw JSON content (pre-formatted byte fragment).
+    pub fn raw(&mut self, s: &[u8]) {
+        self.buf.extend_from_slice(s);
     }
 
     pub fn finish_line(&mut self) {
-        self.buf.push('\n');
+        self.buf.push(b'\n');
     }
 
-    /// Consume and return the buffer.
-    pub fn into_string(self) -> String {
+    /// Push a single raw byte.
+    pub(crate) fn push_byte(&mut self, b: u8) {
+        self.buf.push(b);
+    }
+
+    /// Current length of the buffer in bytes.
+    pub(crate) fn len(&self) -> usize {
+        self.buf.len()
+    }
+
+    /// Truncate the buffer to `len` bytes.
+    pub(crate) fn truncate(&mut self, len: usize) {
+        self.buf.truncate(len);
+    }
+
+    /// Return a byte slice of the buffer contents.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.buf
+    }
+
+    /// Consume and return the underlying `Vec<u8>`.
+    pub fn into_vec(self) -> Vec<u8> {
         self.buf
     }
 }
@@ -122,5 +175,12 @@ impl JsonWriter {
 impl Default for JsonWriter {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl fmt::Write for JsonWriter {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.buf.extend_from_slice(s.as_bytes());
+        Ok(())
     }
 }

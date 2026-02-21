@@ -44,6 +44,7 @@
 //! | [`JsonLayer::flatten_event`] | `false` | Flatten event fields to the top level instead of nesting under `"fields"` |
 //! | [`JsonLayer::with_timer`] | [`SystemTimestamp`] | Use a custom [`FormatTime`] implementation for timestamps |
 //! | [`JsonLayer::without_time`] | — | Disable timestamps entirely |
+//! | [`JsonLayer::with_buffer_capacity_limit`] | `4096` | Capacity threshold for per-thread buffer shrinking |
 //!
 //! # Output format
 //!
@@ -70,6 +71,7 @@
 //! - `span` — the innermost active span (if any).
 //! - `spans` — all active spans from root to leaf (if any).
 
+use std::cell::Cell;
 use std::io::Write;
 use std::time::SystemTime;
 use tracing_core::{Event, Subscriber};
@@ -99,12 +101,16 @@ pub struct SystemTimestamp;
 
 impl FormatTime for SystemTimestamp {
     fn format_time(&self, w: &mut FmtWriter<'_>) -> std::fmt::Result {
-        w.write_str(&format_timestamp(SystemTime::now()))
+        write_timestamp(SystemTime::now(), w)
     }
 }
 
 // Extension type stored in span data
-struct SpanFields(String);
+struct SpanFields(Vec<u8>);
+
+thread_local! {
+    static EVENT_BUF: Cell<Vec<u8>> = const { Cell::new(Vec::new()) };
+}
 
 /// A [`tracing_subscriber::Layer`] that formats events as JSON lines.
 ///
@@ -119,6 +125,12 @@ pub struct JsonLayer<W, T = SystemTimestamp> {
     display_thread_id: bool,
     display_thread_name: bool,
     flatten_event: bool,
+    buf_cap_limit: usize,
+}
+
+impl<W, T> JsonLayer<W, T> {
+    const DEFAULT_BUF_CAPACITY: usize = 256;
+    const DEFAULT_BUF_CAP_LIMIT: usize = 4096;
 }
 
 impl<W> JsonLayer<W>
@@ -139,6 +151,7 @@ where
             display_thread_id: false,
             display_thread_name: false,
             flatten_event: false,
+            buf_cap_limit: Self::DEFAULT_BUF_CAP_LIMIT,
         }
     }
 }
@@ -196,6 +209,20 @@ where
         self
     }
 
+    /// Set the capacity threshold at which the per-thread formatting buffer
+    /// is shrunk back to its default size after each event.
+    ///
+    /// The formatting buffer is reused across events on the same thread to
+    /// avoid allocations. If an unusually large event grows the buffer beyond
+    /// this limit, it is shrunk back to 256 bytes after that event to reclaim
+    /// memory.
+    ///
+    /// Default: **4096** bytes.
+    pub fn with_buffer_capacity_limit(mut self, limit: usize) -> Self {
+        self.buf_cap_limit = limit;
+        self
+    }
+
     /// Use a custom [`FormatTime`] implementation for timestamps.
     ///
     /// This replaces the default [`SystemTimestamp`] formatter. Any type
@@ -214,6 +241,7 @@ where
             display_thread_id: self.display_thread_id,
             display_thread_name: self.display_thread_name,
             flatten_event: self.flatten_event,
+            buf_cap_limit: self.buf_cap_limit,
         }
     }
 
@@ -244,7 +272,8 @@ where
         let mut jw = JsonWriter::new();
         let mut visitor = JsonVisitor::new(&mut jw);
         attrs.record(&mut visitor);
-        span.extensions_mut().insert(SpanFields(jw.into_string()));
+        span.extensions_mut()
+            .insert(SpanFields(jw.into_vec()));
     }
 
     fn on_record(
@@ -267,155 +296,183 @@ where
                 JsonVisitor::new(&mut jw)
             };
             values.record(&mut visitor);
-            fields.0 = jw.into_string();
+            fields.0 = jw.into_vec();
         }
     }
 
     fn on_event(&self, event: &Event<'_>, ctx: Context<'_, S>) {
-        let mut jw = JsonWriter::new();
+        EVENT_BUF.with(|cell| {
+            let mut buf = cell.take();
+            buf.clear();
+            let mut jw = JsonWriter::from_vec(buf);
 
-        jw.obj_start();
-
-        // timestamp (absent when timer is `()` / `without_time()`)
-        let mut ts_buf = String::new();
-        {
-            let mut fmt_writer = FmtWriter::new(&mut ts_buf);
-            let _ = self.timer.format_time(&mut fmt_writer);
-        }
-        let wrote_timestamp = !ts_buf.is_empty();
-        if wrote_timestamp {
-            jw.key("timestamp");
-            jw.val_str(&ts_buf);
-        }
-
-        // level
-        if wrote_timestamp {
-            jw.comma();
-        }
-        jw.key("level");
-        jw.val_str(event.metadata().level().as_str());
-
-        if self.flatten_event {
-            // Event fields flattened to top level
-            let mut visitor = JsonVisitor::continuing(&mut jw);
-            event.record(&mut visitor);
-        } else {
-            // Event fields nested under "fields"
-            jw.comma();
-            jw.key("fields");
             jw.obj_start();
-            let mut visitor = JsonVisitor::new(&mut jw);
-            event.record(&mut visitor);
-            jw.obj_end();
-        }
 
-        // target
-        if self.display_target {
-            jw.comma();
-            jw.key("target");
-            jw.val_str(event.metadata().target());
-        }
+            // Timestamp (absent when timer is `()` / `without_time()`).
+            // Written directly into the JsonWriter via fmt::Write to avoid a
+            // temporary String allocation. The value is NOT JSON-escaped;
+            // FormatTime implementations are expected to produce only
+            // printable ASCII (digits, dashes, colons, etc.).
+            let wrote_timestamp = {
+                let rollback = jw.len();
+                jw.raw(b"\"timestamp\":\"");
+                let val_start = jw.len();
+                {
+                    let mut fw = FmtWriter::new(&mut jw);
+                    let _ = self.timer.format_time(&mut fw);
+                }
+                if jw.len() > val_start {
+                    jw.push_byte(b'"');
+                    true
+                } else {
+                    jw.truncate(rollback);
+                    false
+                }
+            };
 
-        // filename
-        if self.display_filename
-            && let Some(file) = event.metadata().file()
-        {
-            jw.comma();
-            jw.key("filename");
-            jw.val_str(file);
-        }
-
-        // line_number
-        if self.display_line_number
-            && let Some(line) = event.metadata().line()
-        {
-            jw.comma();
-            jw.key("line_number");
-            jw.val_u64(line as u64);
-        }
-
-        // thread ID
-        if self.display_thread_id {
-            jw.comma();
-            jw.key("threadId");
-            jw.val_str(&format!("{:?}", std::thread::current().id()));
-        }
-
-        // thread name
-        if self.display_thread_name {
-            jw.comma();
-            jw.key("threadName");
-            if let Some(name) = std::thread::current().name() {
-                jw.val_str(name);
-            } else {
-                jw.val_str("");
-            }
-        }
-
-        // current span and spans list
-        if let Some(scope) = ctx.event_scope(event) {
-            let spans: Vec<_> = scope.collect();
-
-            // "span" = innermost (first in iterator = closest to current)
-            if let Some(leaf) = spans.first() {
+            // level
+            if wrote_timestamp {
                 jw.comma();
-                jw.key("span");
+            }
+            jw.key("level");
+            jw.val_str(event.metadata().level().as_str());
+
+            if self.flatten_event {
+                // Event fields flattened to top level
+                let mut visitor = JsonVisitor::continuing(&mut jw);
+                event.record(&mut visitor);
+            } else {
+                // Event fields nested under "fields"
+                jw.comma();
+                jw.key("fields");
                 jw.obj_start();
-                jw.key("name");
-                jw.val_str(leaf.name());
-                let ext = leaf.extensions();
-                if let Some(fields) = ext.get::<SpanFields>()
-                    && !fields.0.is_empty()
-                {
-                    jw.comma();
-                    jw.raw(&fields.0);
-                }
+                let mut visitor = JsonVisitor::new(&mut jw);
+                event.record(&mut visitor);
                 jw.obj_end();
             }
 
-            // "spans" = all spans from root to leaf
-            jw.comma();
-            jw.key("spans");
-            jw.arr_start();
-            for (i, span) in spans.iter().rev().enumerate() {
-                if i > 0 {
-                    jw.comma();
-                }
-                jw.obj_start();
-                jw.key("name");
-                jw.val_str(span.name());
-                let ext = span.extensions();
-                if let Some(fields) = ext.get::<SpanFields>()
-                    && !fields.0.is_empty()
-                {
-                    jw.comma();
-                    jw.raw(&fields.0);
-                }
-                jw.obj_end();
+            // target
+            if self.display_target {
+                jw.comma();
+                jw.key("target");
+                jw.val_str(event.metadata().target());
             }
-            jw.arr_end();
-        }
 
-        jw.obj_end();
-        jw.finish_line();
+            // filename
+            if self.display_filename
+                && let Some(file) = event.metadata().file()
+            {
+                jw.comma();
+                jw.key("filename");
+                jw.val_str(file);
+            }
 
-        let line = jw.into_string();
-        let mut writer = self.make_writer.make_writer();
-        let _ = writer.write_all(line.as_bytes());
+            // line_number
+            if self.display_line_number
+                && let Some(line) = event.metadata().line()
+            {
+                jw.comma();
+                jw.key("line_number");
+                jw.val_u64(line as u64);
+            }
+
+            // thread ID
+            if self.display_thread_id {
+                jw.comma();
+                jw.key("threadId");
+                jw.val_debug(&std::thread::current().id());
+            }
+
+            // thread name
+            if self.display_thread_name {
+                jw.comma();
+                jw.key("threadName");
+                if let Some(name) = std::thread::current().name() {
+                    jw.val_str(name);
+                } else {
+                    jw.val_str("");
+                }
+            }
+
+            // current span and spans list
+            if let Some(scope) = ctx.event_scope(event) {
+                let spans: Vec<_> = scope.collect();
+
+                // "span" = innermost (first in iterator = closest to current)
+                if let Some(leaf) = spans.first() {
+                    jw.comma();
+                    jw.key("span");
+                    jw.obj_start();
+                    jw.key("name");
+                    jw.val_str(leaf.name());
+                    let ext = leaf.extensions();
+                    if let Some(fields) = ext.get::<SpanFields>()
+                        && !fields.0.is_empty()
+                    {
+                        jw.comma();
+                        jw.raw(&fields.0);
+                    }
+                    jw.obj_end();
+                }
+
+                // "spans" = all spans from root to leaf
+                jw.comma();
+                jw.key("spans");
+                jw.arr_start();
+                for (i, span) in spans.iter().rev().enumerate() {
+                    if i > 0 {
+                        jw.comma();
+                    }
+                    jw.obj_start();
+                    jw.key("name");
+                    jw.val_str(span.name());
+                    let ext = span.extensions();
+                    if let Some(fields) = ext.get::<SpanFields>()
+                        && !fields.0.is_empty()
+                    {
+                        jw.comma();
+                        jw.raw(&fields.0);
+                    }
+                    jw.obj_end();
+                }
+                jw.arr_end();
+            }
+
+            jw.obj_end();
+            jw.finish_line();
+
+            let mut writer = self.make_writer.make_writer();
+            let _ = writer.write_all(jw.as_bytes());
+
+            // Return buffer for reuse, shrinking if an outlier event grew it
+            let mut buf = jw.into_vec();
+            if buf.capacity() > self.buf_cap_limit {
+                buf.shrink_to(Self::DEFAULT_BUF_CAPACITY);
+            }
+            cell.set(buf);
+        });
     }
 }
 
-/// Format a `SystemTime` as RFC 3339 with microsecond precision in UTC.
-/// e.g. "2026-02-20T12:00:00.000000Z"
-fn format_timestamp(t: SystemTime) -> String {
+/// Write a `SystemTime` as RFC 3339 with microsecond precision in UTC directly
+/// into any `fmt::Write` sink, avoiding an intermediate `String` allocation.
+fn write_timestamp(t: SystemTime, w: &mut impl std::fmt::Write) -> std::fmt::Result {
     let dur = t.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default();
     let secs = dur.as_secs();
     let micros = dur.subsec_micros();
 
-    // Decompose Unix seconds into date/time components
     let (year, month, day, hour, min, sec) = secs_to_datetime(secs);
 
-    format!("{year:04}-{month:02}-{day:02}T{hour:02}:{min:02}:{sec:02}.{micros:06}Z")
+    write!(w, "{year:04}-{month:02}-{day:02}T{hour:02}:{min:02}:{sec:02}.{micros:06}Z")
+}
+
+/// Format a `SystemTime` as RFC 3339 with microsecond precision in UTC.
+/// e.g. "2026-02-20T12:00:00.000000Z"
+#[cfg(test)]
+fn format_timestamp(t: SystemTime) -> String {
+    let mut buf = String::with_capacity(27);
+    write_timestamp(t, &mut buf).unwrap();
+    buf
 }
 
 /// Convert Unix seconds to (year, month, day, hour, min, sec) in UTC.
@@ -452,11 +509,16 @@ fn days_to_ymd(days: u64) -> (u64, u64, u64) {
 mod tests {
     use super::*;
 
+    /// Convert a JsonWriter to a String for test assertions.
+    fn to_string(jw: JsonWriter) -> String {
+        String::from_utf8(jw.into_vec()).unwrap()
+    }
+
     /// Helper: write a string through val_str and return the raw buffer content.
     fn val_str_output(s: &str) -> String {
         let mut jw = JsonWriter::new();
         jw.val_str(s);
-        jw.into_string()
+        to_string(jw)
     }
 
     #[test]
@@ -490,19 +552,19 @@ mod tests {
     fn test_f64_edge_cases() {
         let mut jw = JsonWriter::new();
         jw.val_f64(f64::NAN);
-        assert_eq!(jw.into_string(), "null");
+        assert_eq!(to_string(jw), "null");
 
         let mut jw = JsonWriter::new();
         jw.val_f64(f64::INFINITY);
-        assert_eq!(jw.into_string(), "null");
+        assert_eq!(to_string(jw), "null");
 
         let mut jw = JsonWriter::new();
         jw.val_f64(f64::NEG_INFINITY);
-        assert_eq!(jw.into_string(), "null");
+        assert_eq!(to_string(jw), "null");
 
         let mut jw = JsonWriter::new();
         jw.val_f64(-0.0_f64);
-        let s = jw.into_string();
+        let s = to_string(jw);
         // -0.0 should be written as a number (not null)
         assert!(
             s == "-0" || s == "0" || s == "-0.0" || s == "0.0",
@@ -511,7 +573,7 @@ mod tests {
 
         let mut jw = JsonWriter::new();
         jw.val_f64(2.78);
-        let s = jw.into_string();
+        let s = to_string(jw);
         assert!(s.contains("2.78"), "got: {s}");
     }
 

@@ -4,6 +4,8 @@ use std::sync::{Arc, Mutex};
 use criterion::{Criterion, criterion_group, criterion_main};
 use tracing_microjson::JsonLayer;
 use tracing_microjson::writer::JsonWriter;
+use tracing_microjson::{FormatTime, SystemTimestamp};
+use tracing_subscriber::fmt::format::Writer as FmtWriter;
 use tracing_subscriber::prelude::*;
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -56,7 +58,7 @@ fn writer_benchmarks(c: &mut Criterion) {
         b.iter(|| {
             let mut jw = JsonWriter::new();
             jw.val_str(black_box("hello world"));
-            black_box(jw.into_string())
+            black_box(jw.into_vec())
         });
     });
 
@@ -64,7 +66,7 @@ fn writer_benchmarks(c: &mut Criterion) {
         b.iter(|| {
             let mut jw = JsonWriter::new();
             jw.val_str(black_box("say \"hi\"\nline2"));
-            black_box(jw.into_string())
+            black_box(jw.into_vec())
         });
     });
 
@@ -72,7 +74,7 @@ fn writer_benchmarks(c: &mut Criterion) {
         b.iter(|| {
             let mut jw = JsonWriter::new();
             jw.val_u64(black_box(1_234_567_890));
-            black_box(jw.into_string())
+            black_box(jw.into_vec())
         });
     });
 
@@ -80,7 +82,7 @@ fn writer_benchmarks(c: &mut Criterion) {
         b.iter(|| {
             let mut jw = JsonWriter::new();
             jw.val_i64(black_box(-1_234_567_890));
-            black_box(jw.into_string())
+            black_box(jw.into_vec())
         });
     });
 
@@ -88,7 +90,7 @@ fn writer_benchmarks(c: &mut Criterion) {
         b.iter(|| {
             let mut jw = JsonWriter::new();
             jw.val_f64(black_box(2.78128));
-            black_box(jw.into_string())
+            black_box(jw.into_vec())
         });
     });
 
@@ -96,7 +98,7 @@ fn writer_benchmarks(c: &mut Criterion) {
         b.iter(|| {
             let mut jw = JsonWriter::new();
             jw.val_f64(black_box(f64::NAN));
-            black_box(jw.into_string())
+            black_box(jw.into_vec())
         });
     });
 
@@ -104,7 +106,16 @@ fn writer_benchmarks(c: &mut Criterion) {
         b.iter(|| {
             let mut jw = JsonWriter::new();
             jw.val_bool(black_box(true));
-            black_box(jw.into_string())
+            black_box(jw.into_vec())
+        });
+    });
+
+    group.bench_function("timestamp", |b| {
+        b.iter(|| {
+            let mut buf = String::new();
+            let mut w = FmtWriter::new(&mut buf);
+            SystemTimestamp.format_time(&mut w).unwrap();
+            black_box(buf)
         });
     });
 
