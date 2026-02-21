@@ -24,87 +24,59 @@ impl<'a> JsonVisitor<'a> {
             first: false,
         }
     }
+
+    fn write_key(&mut self, field: &Field) {
+        if !self.first {
+            self.writer.comma();
+        }
+        self.first = false;
+        self.writer.key(field.name());
+    }
 }
 
 impl<'a> Visit for JsonVisitor<'a> {
     fn record_str(&mut self, field: &Field, value: &str) {
-        if !self.first {
-            self.writer.comma();
-        }
-        self.first = false;
-        self.writer.key(field.name());
+        self.write_key(field);
         self.writer.val_str(value);
     }
 
     fn record_u64(&mut self, field: &Field, value: u64) {
-        if !self.first {
-            self.writer.comma();
-        }
-        self.first = false;
-        self.writer.key(field.name());
+        self.write_key(field);
         self.writer.val_u64(value);
     }
 
     fn record_i64(&mut self, field: &Field, value: i64) {
-        if !self.first {
-            self.writer.comma();
-        }
-        self.first = false;
-        self.writer.key(field.name());
+        self.write_key(field);
         self.writer.val_i64(value);
     }
 
     fn record_u128(&mut self, field: &Field, value: u128) {
-        if !self.first {
-            self.writer.comma();
-        }
-        self.first = false;
-        self.writer.key(field.name());
-        self.writer.val_str(&value.to_string());
+        self.write_key(field);
+        self.writer.val_u128(value);
     }
 
     fn record_i128(&mut self, field: &Field, value: i128) {
-        if !self.first {
-            self.writer.comma();
-        }
-        self.first = false;
-        self.writer.key(field.name());
-        self.writer.val_str(&value.to_string());
+        self.write_key(field);
+        self.writer.val_i128(value);
     }
 
     fn record_f64(&mut self, field: &Field, value: f64) {
-        if !self.first {
-            self.writer.comma();
-        }
-        self.first = false;
-        self.writer.key(field.name());
+        self.write_key(field);
         self.writer.val_f64(value);
     }
 
     fn record_bool(&mut self, field: &Field, value: bool) {
-        if !self.first {
-            self.writer.comma();
-        }
-        self.first = false;
-        self.writer.key(field.name());
+        self.write_key(field);
         self.writer.val_bool(value);
     }
 
     fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
-        if !self.first {
-            self.writer.comma();
-        }
-        self.first = false;
-        self.writer.key(field.name());
+        self.write_key(field);
         self.writer.val_debug(value);
     }
 
     fn record_error(&mut self, field: &Field, value: &(dyn std::error::Error + 'static)) {
-        if !self.first {
-            self.writer.comma();
-        }
-        self.first = false;
-        self.writer.key(field.name());
+        self.write_key(field);
         self.writer.val_display(value);
     }
 }
